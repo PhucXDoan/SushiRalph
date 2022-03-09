@@ -63,8 +63,16 @@ extern "C" PROTOTYPE_UPDATE(update)
 	{
 		state->seconds_accumulated = 0.0f; // @STICKY@ Lose lagged frames.
 
-		if (state->input.accept && !state->prev_input.accept)
-			DEBUG_printf("meow\n");
+		if (state->input.down)
+		{
+			state->offset -= 1.0f * SECONDS_PER_UPDATE;
+		}
+		if (state->input.up)
+		{
+			state->offset += 1.0f * SECONDS_PER_UPDATE;
+		}
+
+		state->offset = state->offset - static_cast<i32>(state->offset); // @TODO@ Make this where it is in the interval [0, 1)?
 
 		//
 		// Render.
@@ -74,6 +82,16 @@ extern "C" PROTOTYPE_UPDATE(update)
 		SDL_RenderClear(program->renderer);
 
 		draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Sushi Ralph");
+
+		set_color(program->renderer, { 1.0f, 1.0f, 1.0f, 1.0f });
+		draw_line(program->renderer, { 0.0f, WINDOW_DIMENSIONS.y        / 3.0f }, { WINDOW_DIMENSIONS.x, WINDOW_DIMENSIONS.y        / 3.0f });
+		draw_line(program->renderer, { 0.0f, WINDOW_DIMENSIONS.y * 2.0f / 3.0f }, { WINDOW_DIMENSIONS.x, WINDOW_DIMENSIONS.y * 2.0f / 3.0f });
+
+		FOR_RANGE(i, 0, static_cast<i32>(WINDOW_DIMENSIONS.x / BELT_SPACING) + 2)
+		{
+			draw_line(program->renderer, { (state->offset + i) * BELT_SPACING, WINDOW_DIMENSIONS.y * 2.0f / 3.0f }, { (state->offset + i - 1.0f) * BELT_SPACING, WINDOW_DIMENSIONS.y / 2.0f });
+			draw_line(program->renderer, { (state->offset + i) * BELT_SPACING, WINDOW_DIMENSIONS.y        / 3.0f }, { (state->offset + i - 1.0f) * BELT_SPACING, WINDOW_DIMENSIONS.y / 2.0f });
+		}
 
 		SDL_RenderPresent(program->renderer);
 
