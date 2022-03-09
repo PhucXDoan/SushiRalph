@@ -54,7 +54,7 @@ int main(int, char**)
 		exit(-1);
 	}
 
-	SDL_Window* window = SDL_CreateWindow("Sushi Ralph", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+	SDL_Window* window = SDL_CreateWindow("Sushi Ralph", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, static_cast<i32>(WINDOW_DIMENSIONS.x), static_cast<i32>(WINDOW_DIMENSIONS.y), 0);
 	if (!window)
 	{
 		DEBUG_printf("SDL_Error: '%s'\n", SDL_GetError());
@@ -113,6 +113,7 @@ int main(int, char**)
 		SDL_Delay(1);
 	}
 
+	hotloading_data.boot_down(&program);
 	SDL_DestroyRenderer(window_renderer);
 	SDL_DestroyWindow(window);
 	TTF_Quit();

@@ -8,8 +8,7 @@ global constexpr strlit  PROGRAM_DLL_FILE_PATH      = "W:/build/SushiRalph.dll";
 global constexpr strlit  PROGRAM_DLL_TEMP_FILE_PATH = "W:/build/SushiRalph.dll.temp";
 global constexpr strlit  LOCK_FILE_PATH             = "W:/build/LOCK.tmp";
 global constexpr memsize MEMORY_CAPACITY            = MEBIBYTES_OF(1);
-global constexpr i32     WINDOW_WIDTH               = 1280;
-global constexpr i32     WINDOW_HEIGHT              = 720;
+global constexpr vf2     WINDOW_DIMENSIONS          = vf2 ( 1280, 128 * 3 );
 
 struct Program
 {
