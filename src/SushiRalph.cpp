@@ -9,6 +9,21 @@ internal inline f32 dampen(f32 a, f32 b, f32 k, f32 dt) { return lerp(a, b, 1.0f
 internal inline vf3 dampen(vf3 a, vf3 b, f32 k, f32 dt) { return lerp(a, b, 1.0f - expf(-k * dt)); }
 internal inline vf4 dampen(vf4 a, vf4 b, f32 k, f32 dt) { return lerp(a, b, 1.0f - expf(-k * dt)); }
 
+internal inline f32 rng(u32* seed)
+{
+	return RAND_TABLE[++*seed % ARRAY_CAPACITY(RAND_TABLE)] / 65536.0f;
+}
+
+internal inline i32 rng(u32* seed, i32 start, i32 end)
+{
+	return static_cast<i32>(rng(seed) * (end - start) + start);
+}
+
+internal inline f32 rng(u32* seed, f32 start, f32 end)
+{
+	return rng(seed) * (end - start) + start;
+}
+
 internal bool32 collide_rect_rect(f32* result, vf2 ray, vf2 bottom_left_a, vf2 dimensions_a, vf2 bottom_left_b, vf2 dimensions_b)
 {
 	// @TODO@ Robustify.
@@ -211,7 +226,8 @@ extern "C" PROTOTYPE_UPDATE(update)
 							state->type                        = StateType::playing;
 							state->playing.ralph_belt_index    = 1;
 							state->playing.ralph_position      = { 250.0f, 0.0f, -1.5f * BELT_HEIGHT };
-							state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x + OBSTACLE_HITBOX_DIMENSIONS.x / 2.0f, 0.0f, -1.5f * BELT_HEIGHT };
+							state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x + state->playing.obstacle_hitbox.x / 2.0f, 0.0f, -(rng(&state->seed, 0, 3) + 0.5f) * BELT_HEIGHT };
+							state->playing.obstacle_hitbox     = { 60.0f, 40.0f, 200.0f };
 						} break;
 
 						case 1:
@@ -268,15 +284,15 @@ extern "C" PROTOTYPE_UPDATE(update)
 				f32 collide_t;
 				if
 				(
-					fabs(state->playing.obstacle_position.z - state->playing.ralph_position.z) < 50.0f &&
+					fabs(state->playing.obstacle_position.z - state->playing.ralph_position.z) < state->playing.obstacle_hitbox.z / 2.0f &&
 					collide_rect_rect
 					(
 						&collide_t,
 						{ ralph_movement.x, ralph_movement.y },
 						project(state->playing.ralph_position) - RALPH_HITBOX_DIMENSIONS / 2.0f,
 						RALPH_HITBOX_DIMENSIONS,
-						project(state->playing.obstacle_position) - OBSTACLE_HITBOX_DIMENSIONS / 2.0f,
-						OBSTACLE_HITBOX_DIMENSIONS
+						project(state->playing.obstacle_position) - state->playing.obstacle_hitbox.xy / 2.0f,
+						state->playing.obstacle_hitbox.xy
 					)
 				)
 				{
@@ -312,9 +328,9 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 					state->playing.obstacle_position.x -= ralph_movement.x;
 
-					if (state->playing.obstacle_position.x + OBSTACLE_HITBOX_DIMENSIONS.x / 2.0f < 0.0f)
+					if (state->playing.obstacle_position.x + state->playing.obstacle_hitbox.x / 2.0f < 0.0f)
 					{
-						state->playing.obstacle_position = { WINDOW_DIMENSIONS.x + OBSTACLE_HITBOX_DIMENSIONS.x / 2.0f, 0.0f, -(1.0f + 0.5f) * BELT_HEIGHT };
+						state->playing.obstacle_position = { WINDOW_DIMENSIONS.x + state->playing.obstacle_hitbox.x / 2.0f, 0.0f, -(rng(&state->seed, 0, 3) + 0.5f) * BELT_HEIGHT };
 					}
 				}
 			} break;
@@ -377,7 +393,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 				draw_rect(program->renderer, project(state->playing.ralph_position) - RALPH_HITBOX_DIMENSIONS / 2.0f, RALPH_HITBOX_DIMENSIONS);
 
 				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-				draw_rect(program->renderer, project(state->playing.obstacle_position) - OBSTACLE_HITBOX_DIMENSIONS / 2.0f, OBSTACLE_HITBOX_DIMENSIONS);
+				draw_rect(program->renderer, project(state->playing.obstacle_position) - state->playing.obstacle_hitbox.xy / 2.0f, state->playing.obstacle_hitbox.xy);
 
 				draw_sprite(program->renderer, &state->sushi_sprite, project(state->playing.obstacle_position));
 
