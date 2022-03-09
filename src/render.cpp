@@ -18,7 +18,7 @@ internal void draw_text(SDL_Renderer* renderer, FC_Font* font, vf2 coordinates, 
 		font,
 		renderer,
 		coordinates.x,
-		WINDOW_DIMENSIONS.y - 1.0f - coordinates.y - FC_GetBaseline(font),
+		WINDOW_DIMENSIONS.y - 1.0f - coordinates.y - FC_GetBaseline(font) * scalar,
 		FC_MakeEffect
 		(
 			alignment,
