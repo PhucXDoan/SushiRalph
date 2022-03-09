@@ -1,5 +1,5 @@
 #include "SushiRalph.h"
-#include "renderer.cpp"
+#include "render.cpp"
 
 extern "C" PROTOTYPE_INITIALIZE(initialize)
 {
@@ -65,14 +65,17 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 		if (state->input.down)
 		{
-			state->offset -= 1.0f * SECONDS_PER_UPDATE;
+			state->belt_offsets[0] -= 1.0f * SECONDS_PER_UPDATE;
 		}
 		if (state->input.up)
 		{
-			state->offset += 1.0f * SECONDS_PER_UPDATE;
+			state->belt_offsets[0] += 1.0f * SECONDS_PER_UPDATE;
 		}
 
-		state->offset = state->offset - static_cast<i32>(state->offset); // @TODO@ Make this where it is in the interval [0, 1)?
+		FOR_ELEMS(it, state->belt_offsets)
+		{
+			*it -= static_cast<i32>(*it); // @TODO@ Make this where it is in the interval [0, 1)?
+		}
 
 		//
 		// Render.
@@ -81,17 +84,25 @@ extern "C" PROTOTYPE_UPDATE(update)
 		set_color(program->renderer, {});
 		SDL_RenderClear(program->renderer);
 
-		draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Sushi Ralph");
+		FOR_RANGE(belt_index, 3)
+		{
+			set_color(program->renderer, monochrome(BELT_LIGHTNESS[belt_index]));
+			draw_rect(program->renderer, { 0.0f, belt_index * BELT_HEIGHT }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT });
+
+			set_color(program->renderer, monochrome(0.5f));
+			FOR_RANGE(scale_index, static_cast<i32>(WINDOW_DIMENSIONS.x / BELT_SPACING) + 2)
+			{
+				vf2 mid = { (state->belt_offsets[belt_index] + scale_index - 1.0f) * BELT_SPACING, (belt_index + 0.5f) * BELT_HEIGHT };
+				draw_line(program->renderer, mid, mid + vf2 { BELT_SPACING, -BELT_HEIGHT / 2.0f });
+				draw_line(program->renderer, mid, mid + vf2 { BELT_SPACING,  BELT_HEIGHT / 2.0f });
+			}
+		}
 
 		set_color(program->renderer, { 1.0f, 1.0f, 1.0f, 1.0f });
 		draw_line(program->renderer, { 0.0f, WINDOW_DIMENSIONS.y        / 3.0f }, { WINDOW_DIMENSIONS.x, WINDOW_DIMENSIONS.y        / 3.0f });
 		draw_line(program->renderer, { 0.0f, WINDOW_DIMENSIONS.y * 2.0f / 3.0f }, { WINDOW_DIMENSIONS.x, WINDOW_DIMENSIONS.y * 2.0f / 3.0f });
 
-		FOR_RANGE(i, 0, static_cast<i32>(WINDOW_DIMENSIONS.x / BELT_SPACING) + 2)
-		{
-			draw_line(program->renderer, { (state->offset + i) * BELT_SPACING, WINDOW_DIMENSIONS.y * 2.0f / 3.0f }, { (state->offset + i - 1.0f) * BELT_SPACING, WINDOW_DIMENSIONS.y / 2.0f });
-			draw_line(program->renderer, { (state->offset + i) * BELT_SPACING, WINDOW_DIMENSIONS.y        / 3.0f }, { (state->offset + i - 1.0f) * BELT_SPACING, WINDOW_DIMENSIONS.y / 2.0f });
-		}
+		draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Sushi Ralph");
 
 		SDL_RenderPresent(program->renderer);
 

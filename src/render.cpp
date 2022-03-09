@@ -1,3 +1,8 @@
+internal vf4 monochrome(f32 k, f32 a = 1.0f)
+{
+	return { k, k, k, a };
+}
+
 internal void set_color(SDL_Renderer* renderer, vf4 rgba)
 {
 	rgba *= 255.0f;
@@ -28,4 +33,10 @@ internal void draw_text(SDL_Renderer* renderer, FC_Font* font, vf2 coordinates, 
 internal inline void draw_line(SDL_Renderer* renderer, vf2 start, vf2 end)
 {
 	SDL_RenderDrawLine(renderer, static_cast<i32>(start.x), static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - start.y), static_cast<i32>(end.x), static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - end.y));
+}
+
+internal void draw_rect(SDL_Renderer* renderer, vf2 bottom_left, vf2 dimensions)
+{
+	SDL_Rect rect = { static_cast<i32>(bottom_left.x), static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - bottom_left.y - dimensions.y), static_cast<i32>(dimensions.x), static_cast<i32>(dimensions.y) };
+	SDL_RenderFillRect(renderer, &rect);
 }
