@@ -3,6 +3,9 @@
 
 global constexpr f32 SECONDS_PER_UPDATE = 1.0f / 30.0f;
 
+// @TODO@ This isn't -9.81 because we're still using pixels!
+global constexpr f32 GRAVITY       = -512.0f;
+
 global constexpr f32 BELT_SPACING     = WINDOW_DIMENSIONS.y / 6.0f;
 global constexpr f32 BELT_HEIGHT      = WINDOW_DIMENSIONS.y / 3.0f;
 global constexpr f32 BELT_LIGHTNESS[] = { 0.6f, 0.575f, 0.625f };
@@ -70,8 +73,9 @@ struct State
 	struct
 	{
 		i32 ralph_belt_index;
-		vf2 ralph_position;
-		vf2 obstacle_position;
+		vf3 ralph_position;
+		vf3 ralph_velocity;
+		vf3 obstacle_position;
 	} playing;
 
 	struct

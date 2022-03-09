@@ -9,6 +9,11 @@ internal void set_color(SDL_Renderer* renderer, vf4 rgba)
 	SDL_SetRenderDrawColor(renderer, static_cast<u8>(rgba.r), static_cast<u8>(rgba.g), static_cast<u8>(rgba.b), static_cast<u8>(rgba.a));
 }
 
+internal vf2 project(vf3 p)
+{
+	return { p.x, -p.z + p.y * 0.5f };
+}
+
 internal inline void draw_line(SDL_Renderer* renderer, vf2 start, vf2 end)
 {
 	SDL_RenderDrawLine(renderer, static_cast<i32>(start.x), static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - start.y), static_cast<i32>(end.x), static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - end.y));

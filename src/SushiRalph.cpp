@@ -11,6 +11,8 @@ internal inline vf4 dampen(vf4 a, vf4 b, f32 k, f32 dt) { return lerp(a, b, 1.0f
 
 internal bool32 collide_rect_rect(f32* result, vf2 ray, vf2 bottom_left_a, vf2 dimensions_a, vf2 bottom_left_b, vf2 dimensions_b)
 {
+	// @TODO@ Robustify.
+	#if 0
 	vf2 delta = bottom_left_b - bottom_left_a;
 	f32 ts[] =
 		{
@@ -46,6 +48,23 @@ internal bool32 collide_rect_rect(f32* result, vf2 ray, vf2 bottom_left_a, vf2 d
 	{
 		*result = t;
 		return true;
+	}
+	#endif
+
+	bottom_left_a += ray;
+
+	if
+	(
+		bottom_left_a.x <= bottom_left_b.x + dimensions_b.x && bottom_left_a.x + dimensions_a.x >= bottom_left_b.x &&
+		bottom_left_a.y <= bottom_left_b.y + dimensions_b.y && bottom_left_a.y + dimensions_a.y >= bottom_left_b.y
+	)
+	{
+		*result = 1.0f;
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 }
 
@@ -189,10 +208,10 @@ extern "C" PROTOTYPE_UPDATE(update)
 					{
 						case 0:
 						{
-							state->type                      = StateType::playing;
-							state->playing.ralph_belt_index  = 1;
-							state->playing.ralph_position    = { 250.0f, (state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT };
-							state->playing.obstacle_position = { 750.0f, (1.0f + 0.5f) * BELT_HEIGHT };
+							state->type                        = StateType::playing;
+							state->playing.ralph_belt_index    = 1;
+							state->playing.ralph_position      = { 250.0f, 0.0f, -1.5f * BELT_HEIGHT };
+							state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x + OBSTACLE_HITBOX_DIMENSIONS.x / 2.0f, 0.0f, -1.5f * BELT_HEIGHT };
 						} break;
 
 						case 1:
@@ -216,25 +235,50 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 			case StateType::playing:
 			{
-				// @TODO@ Make holding down work nicely.
-				if (state->input.down && !state->prev_input.down && state->playing.ralph_belt_index > 0)
+				if (state->playing.ralph_position.y <= 0.0f)
 				{
-					--state->playing.ralph_belt_index;
+					// @TODO@ Make holding down work nicely.
+					if (state->input.down && !state->prev_input.down && state->playing.ralph_belt_index > 0)
+					{
+						--state->playing.ralph_belt_index;
+					}
+					if (state->input.up && !state->prev_input.up && state->playing.ralph_belt_index < 2)
+					{
+						++state->playing.ralph_belt_index;
+					}
+
+					state->playing.ralph_velocity.y = 0.0f;
+					if (state->input.accept && !state->prev_input.accept)
+					{
+						state->playing.ralph_velocity.y += 256.0f;
+					}
 				}
-				if (state->input.up && !state->prev_input.up && state->playing.ralph_belt_index < 2)
+				else
 				{
-					++state->playing.ralph_belt_index;
+					state->playing.ralph_velocity.y += GRAVITY * SECONDS_PER_UPDATE;
 				}
 
-				vf2 ralph_movement =
-					vf2
+				vf3 ralph_movement =
 					{
 						BELT_SPEED * SECONDS_PER_UPDATE,
-						dampen(0.0f, (state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT - state->playing.ralph_position.y, 32.0f, SECONDS_PER_UPDATE)
+						state->playing.ralph_velocity.y * SECONDS_PER_UPDATE,
+						dampen(0.0f, -(state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT - state->playing.ralph_position.z, 32.0f, SECONDS_PER_UPDATE)
 					};
 
 				f32 collide_t;
-				if (collide_rect_rect(&collide_t, ralph_movement, state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f, RALPH_HITBOX_DIMENSIONS, state->playing.obstacle_position - OBSTACLE_HITBOX_DIMENSIONS / 2.0f, OBSTACLE_HITBOX_DIMENSIONS))
+				if
+				(
+					fabs(state->playing.obstacle_position.z - state->playing.ralph_position.z) < 50.0f &&
+					collide_rect_rect
+					(
+						&collide_t,
+						{ ralph_movement.x, ralph_movement.y },
+						vf2 { state->playing.ralph_position.x, state->playing.ralph_position.y } - RALPH_HITBOX_DIMENSIONS / 2.0f,
+						RALPH_HITBOX_DIMENSIONS,
+						vf2 { state->playing.obstacle_position.x, state->playing.ralph_position.y } - OBSTACLE_HITBOX_DIMENSIONS / 2.0f,
+						OBSTACLE_HITBOX_DIMENSIONS
+					)
+				)
 				{
 					state->type                    = StateType::game_over;
 					state->playing.ralph_position += ralph_movement * collide_t;
@@ -250,7 +294,15 @@ extern "C" PROTOTYPE_UPDATE(update)
 				}
 				else
 				{
-					state->playing.ralph_position.y += ralph_movement.y;
+					state->playing.ralph_position.z += ralph_movement.z;
+
+					state->playing.ralph_position.y += state->playing.ralph_velocity.y * SECONDS_PER_UPDATE;
+
+					if (state->playing.ralph_position.y <= 0.0f)
+					{
+						state->playing.ralph_position.y = 0.0f;
+						loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
+					}
 
 					FOR_ELEMS(it, state->belt_offsets)
 					{
@@ -259,7 +311,10 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 					state->playing.obstacle_position.x -= ralph_movement.x;
 
-					loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
+					if (state->playing.obstacle_position.x + OBSTACLE_HITBOX_DIMENSIONS.x / 2.0f < 0.0f)
+					{
+						state->playing.obstacle_position = { WINDOW_DIMENSIONS.x + OBSTACLE_HITBOX_DIMENSIONS.x / 2.0f, 0.0f, (1.0f + 0.5f) * BELT_HEIGHT };
+					}
 				}
 			} break;
 
@@ -310,27 +365,27 @@ extern "C" PROTOTYPE_UPDATE(update)
 			case StateType::game_over:
 			{
 				set_color(program->renderer, { 0.0f, 1.0f, 0.0f, 1.0f });
-				draw_rect(program->renderer, state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f, RALPH_HITBOX_DIMENSIONS);
+				draw_rect(program->renderer, project(state->playing.ralph_position) - RALPH_HITBOX_DIMENSIONS / 2.0f, RALPH_HITBOX_DIMENSIONS);
 
 				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-				draw_rect(program->renderer, state->playing.obstacle_position - OBSTACLE_HITBOX_DIMENSIONS / 2.0f, OBSTACLE_HITBOX_DIMENSIONS);
+				draw_rect(program->renderer, project(state->playing.obstacle_position) - OBSTACLE_HITBOX_DIMENSIONS / 2.0f, OBSTACLE_HITBOX_DIMENSIONS);
 
 				if (state->type == StateType::playing)
 				{
-					draw_sprite(program->renderer, &state->ralph_running_sprite, state->playing.ralph_position);
+					draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
 				}
 				else
 				{
-					draw_sprite(program->renderer, &state->ralph_exploding_sprite, state->playing.ralph_position);
+					draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
 				}
 
-				draw_sprite(program->renderer, &state->sushi_sprite, state->playing.obstacle_position);
+				draw_sprite(program->renderer, &state->sushi_sprite, project(state->playing.obstacle_position));
 
 				set_color(program->renderer, { 1.0f, 0.0f, 0.0f, 1.0f });
-				draw_crosshair(program->renderer, state->playing.ralph_position, 25.0f);
+				draw_crosshair(program->renderer, project(state->playing.ralph_position), 25.0f);
 
 				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-				draw_crosshair(program->renderer, state->playing.obstacle_position, 50.0f);
+				draw_crosshair(program->renderer, project(state->playing.obstacle_position), 50.0f);
 			} break;
 		}
 
