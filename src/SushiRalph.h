@@ -16,6 +16,18 @@ global constexpr strlit TITLE_MENU_OPTIONS[] =
 		"Exit"
 	};
 
+struct Sprite
+{
+	SDL_Texture* texture;
+	i32          width_pixels;
+	i32          height_pixels;
+	f32          scalar;
+	i32          frame_index;
+	i32          frame_count;
+	f32          seconds_per_frame;
+	f32          seconds_accumulated;
+};
+
 struct Input
 {
 	bool8 left;
@@ -25,14 +37,31 @@ struct Input
 	bool8 accept;
 };
 
+enum_struct (StateType, u32)
+{
+	title_menu = 1,
+	playing
+};
+
 struct State
 {
-	f32   seconds_accumulated;
-	Input input;
-	Input prev_input;
+	f32       seconds_accumulated;
+	Input     input;
+	Input     prev_input;
 
-	f32   belt_offsets[3];
-	i32   title_menu_option_index;
+	StateType type;
+	f32       belt_offsets[3];
+
+	Sprite    sprite_ralph_running;
+
+	struct
+	{
+		i32 option_index;
+	} title_menu;
+
+	struct
+	{
+	} playing;
 
 	FC_Font* font;
 };
