@@ -58,7 +58,8 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	state->font = FC_CreateFont();
 	FC_LoadFont(state->font, program->renderer, "C:/code/misc/fonts/Consolas.ttf", 64, { 255, 255, 255, 255 }, TTF_STYLE_NORMAL);
 
-	state->sprite_ralph_running = load_sprite(program->renderer, "W:/data/ralph_running.bmp", 0.4f, 2, 0.25f);
+	state->ralph_running_sprite = load_sprite(program->renderer, "W:/data/ralph_running.bmp", 0.4f, 2, 0.25f);
+	state->sushi_sprite         = load_sprite(program->renderer, "W:/data/sushi.bmp", 0.1f);
 }
 
 extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
@@ -66,7 +67,8 @@ extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
 	State* state = reinterpret_cast<State*>(program->memory);
 
 	FC_FreeFont(state->font);
-	SDL_DestroyTexture(state->sprite_ralph_running.texture);
+	SDL_DestroyTexture(state->ralph_running_sprite.texture);
+	SDL_DestroyTexture(state->sushi_sprite.texture);
 }
 
 extern "C" PROTOTYPE_UPDATE(update)
@@ -115,47 +117,72 @@ extern "C" PROTOTYPE_UPDATE(update)
 		// Update.
 		//
 
-		// @TODO@ Make holding down work nicely.
-		if (state->type == StateType::title_menu)
+		switch (state->type)
 		{
-			if (state->input.left && !state->prev_input.left && state->title_menu.option_index > 0)
+			case StateType::title_menu:
 			{
-				--state->title_menu.option_index;
-			}
-			if (state->input.right && !state->prev_input.right && state->title_menu.option_index < ARRAY_CAPACITY(TITLE_MENU_OPTIONS) - 1)
+				// @TODO@ Make holding down work nicely.
+				if (state->input.left && !state->prev_input.left && state->title_menu.option_index > 0)
+				{
+					--state->title_menu.option_index;
+				}
+				if (state->input.right && !state->prev_input.right && state->title_menu.option_index < ARRAY_CAPACITY(TITLE_MENU_OPTIONS) - 1)
+				{
+					++state->title_menu.option_index;
+				}
+
+				if (state->input.accept && !state->prev_input.accept)
+				{
+					switch (state->title_menu.option_index)
+					{
+						case 0:
+						{
+							state->type                      = StateType::playing;
+							state->playing.ralph_belt_index  = 1;
+							state->playing.obstacle_position = { 750.0f, (1.0f + 0.5f) * BELT_HEIGHT };
+						} break;
+
+						case 1:
+						{
+						} break;
+
+						case 2:
+						{
+						} break;
+
+						case 3:
+						{
+							program->is_running = false;
+							return;
+						} break;
+					}
+				}
+
+				state->belt_offsets[1] = dampen(state->belt_offsets[1], -state->title_menu.option_index * TITLE_MENU_OPTION_SPACING, 16.0f, SECONDS_PER_UPDATE);
+			} break;
+
+			case StateType::playing:
 			{
-				++state->title_menu.option_index;
-			}
+				// @TODO@ Make holding down work nicely.
+				if (state->input.down && !state->prev_input.down && state->playing.ralph_belt_index > 0)
+				{
+					--state->playing.ralph_belt_index;
+				}
+				if (state->input.up && !state->prev_input.up && state->playing.ralph_belt_index < 2)
+				{
+					++state->playing.ralph_belt_index;
+				}
+
+				FOR_ELEMS(it, state->belt_offsets)
+				{
+					*it -= BELT_SPEED * SECONDS_PER_UPDATE;
+				}
+
+				state->playing.obstacle_position.x -= BELT_SPEED * SECONDS_PER_UPDATE;
+
+				age_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
+			} break;
 		}
-
-		if (state->input.accept && !state->prev_input.accept)
-		{
-			switch (state->title_menu.option_index)
-			{
-				case 0:
-				{
-					state->type = StateType::playing;
-				} break;
-
-				case 1:
-				{
-				} break;
-
-				case 2:
-				{
-				} break;
-
-				case 3:
-				{
-					program->is_running = false;
-					return;
-				} break;
-			}
-		}
-
-		state->belt_offsets[1] = dampen(state->belt_offsets[1], -state->title_menu.option_index * TITLE_MENU_OPTION_SPACING, 16.0f, SECONDS_PER_UPDATE);
-
-		age_sprite(&state->sprite_ralph_running, SECONDS_PER_UPDATE);
 
 		//
 		// Render.
@@ -196,7 +223,8 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 			case StateType::playing:
 			{
-				draw_sprite(program->renderer, &state->sprite_ralph_running, { 50.0f, WINDOW_DIMENSIONS.y / 2.0f - state->sprite_ralph_running.height_pixels * state->sprite_ralph_running.scalar * 0.5f });
+				draw_sprite(program->renderer, &state->ralph_running_sprite, { 250.0f, (state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT });
+				draw_sprite(program->renderer, &state->sushi_sprite, state->playing.obstacle_position);
 			} break;
 		}
 

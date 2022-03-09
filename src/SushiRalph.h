@@ -6,6 +6,7 @@ global constexpr f32 SECONDS_PER_UPDATE = 1.0f / 30.0f;
 global constexpr f32 BELT_SPACING     = WINDOW_DIMENSIONS.y / 6.0f;
 global constexpr f32 BELT_HEIGHT      = WINDOW_DIMENSIONS.y / 3.0f;
 global constexpr f32 BELT_LIGHTNESS[] = { 0.6f, 0.575f, 0.625f };
+global constexpr f32 BELT_SPEED       = 100.0f;
 
 global constexpr f32    TITLE_MENU_OPTION_SPACING = 250.0f;
 global constexpr strlit TITLE_MENU_OPTIONS[] =
@@ -52,7 +53,8 @@ struct State
 	StateType type;
 	f32       belt_offsets[3];
 
-	Sprite    sprite_ralph_running;
+	Sprite    ralph_running_sprite;
+	Sprite    sushi_sprite;
 
 	struct
 	{
@@ -61,6 +63,8 @@ struct State
 
 	struct
 	{
+		i32 ralph_belt_index;
+		vf2 obstacle_position;
 	} playing;
 
 	FC_Font* font;
