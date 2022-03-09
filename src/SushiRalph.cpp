@@ -250,7 +250,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 					state->playing.ralph_velocity.y = 0.0f;
 					if (state->input.accept && !state->prev_input.accept)
 					{
-						state->playing.ralph_velocity.y += 256.0f;
+						state->playing.ralph_velocity.y += 500.0f;
 					}
 				}
 				else
@@ -273,15 +273,16 @@ extern "C" PROTOTYPE_UPDATE(update)
 					(
 						&collide_t,
 						{ ralph_movement.x, ralph_movement.y },
-						vf2 { state->playing.ralph_position.x, state->playing.ralph_position.y } - RALPH_HITBOX_DIMENSIONS / 2.0f,
+						project(state->playing.ralph_position) - RALPH_HITBOX_DIMENSIONS / 2.0f,
 						RALPH_HITBOX_DIMENSIONS,
-						vf2 { state->playing.obstacle_position.x, state->playing.ralph_position.y } - OBSTACLE_HITBOX_DIMENSIONS / 2.0f,
+						project(state->playing.obstacle_position) - OBSTACLE_HITBOX_DIMENSIONS / 2.0f,
 						OBSTACLE_HITBOX_DIMENSIONS
 					)
 				)
 				{
 					state->type                    = StateType::game_over;
-					state->playing.ralph_position += ralph_movement * collide_t;
+					state->playing.ralph_position += ralph_movement   * collide_t;
+					state->playing.distance       += ralph_movement.x * collide_t;
 
 					FOR_ELEMS(it, state->belt_offsets)
 					{
@@ -290,13 +291,13 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 					state->playing.obstacle_position.x -= ralph_movement.x * collide_t;
 
-					loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE * collide_t);
+					state->ralph_exploding_sprite.frame_index = 0;
 				}
 				else
 				{
 					state->playing.ralph_position.z += ralph_movement.z;
-
 					state->playing.ralph_position.y += state->playing.ralph_velocity.y * SECONDS_PER_UPDATE;
+					state->playing.distance         += ralph_movement.x;
 
 					if (state->playing.ralph_position.y <= 0.0f)
 					{
@@ -313,14 +314,22 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 					if (state->playing.obstacle_position.x + OBSTACLE_HITBOX_DIMENSIONS.x / 2.0f < 0.0f)
 					{
-						state->playing.obstacle_position = { WINDOW_DIMENSIONS.x + OBSTACLE_HITBOX_DIMENSIONS.x / 2.0f, 0.0f, (1.0f + 0.5f) * BELT_HEIGHT };
+						state->playing.obstacle_position = { WINDOW_DIMENSIONS.x + OBSTACLE_HITBOX_DIMENSIONS.x / 2.0f, 0.0f, -(1.0f + 0.5f) * BELT_HEIGHT };
 					}
 				}
 			} break;
 
 			case StateType::game_over:
 			{
-				age_sprite(&state->ralph_exploding_sprite, SECONDS_PER_UPDATE);
+				if (state->input.accept && !state->prev_input.accept)
+				{
+					state->type                    = StateType::title_menu;
+					state->title_menu.option_index = 0;
+				}
+				else
+				{
+					age_sprite(&state->ralph_exploding_sprite, SECONDS_PER_UPDATE);
+				}
 			} break;
 		}
 
@@ -370,22 +379,26 @@ extern "C" PROTOTYPE_UPDATE(update)
 				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
 				draw_rect(program->renderer, project(state->playing.obstacle_position) - OBSTACLE_HITBOX_DIMENSIONS / 2.0f, OBSTACLE_HITBOX_DIMENSIONS);
 
+				draw_sprite(program->renderer, &state->sushi_sprite, project(state->playing.obstacle_position));
+
 				if (state->type == StateType::playing)
 				{
 					draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
+
+					set_color(program->renderer, { 1.0f, 0.0f, 0.0f, 1.0f });
+					draw_crosshair(program->renderer, project(state->playing.ralph_position), 25.0f);
+
+					set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
+					draw_crosshair(program->renderer, project(state->playing.obstacle_position), 50.0f);
 				}
 				else
 				{
 					draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
+
+					draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "GAME OVER");
+					draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Distance : %f", state->playing.distance);
 				}
 
-				draw_sprite(program->renderer, &state->sushi_sprite, project(state->playing.obstacle_position));
-
-				set_color(program->renderer, { 1.0f, 0.0f, 0.0f, 1.0f });
-				draw_crosshair(program->renderer, project(state->playing.ralph_position), 25.0f);
-
-				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-				draw_crosshair(program->renderer, project(state->playing.obstacle_position), 50.0f);
 			} break;
 		}
 

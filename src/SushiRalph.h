@@ -4,12 +4,12 @@
 global constexpr f32 SECONDS_PER_UPDATE = 1.0f / 30.0f;
 
 // @TODO@ This isn't -9.81 because we're still using pixels!
-global constexpr f32 GRAVITY       = -512.0f;
+global constexpr f32 GRAVITY       = -750.0f;
 
 global constexpr f32 BELT_SPACING     = WINDOW_DIMENSIONS.y / 6.0f;
 global constexpr f32 BELT_HEIGHT      = WINDOW_DIMENSIONS.y / 3.0f;
 global constexpr f32 BELT_LIGHTNESS[] = { 0.6f, 0.575f, 0.625f };
-global constexpr f32 BELT_SPEED       = 150.0f;
+global constexpr f32 BELT_SPEED       = 360.0f;
 
 global constexpr vf2 RALPH_HITBOX_DIMENSIONS    = { 115.0f, 80.0f };
 global constexpr vf2 OBSTACLE_HITBOX_DIMENSIONS = { 60.0f, 45.0f };
@@ -61,10 +61,6 @@ struct State
 	StateType type;
 	f32       belt_offsets[3];
 
-	Sprite    ralph_running_sprite;
-	Sprite    ralph_exploding_sprite;
-	Sprite    sushi_sprite;
-
 	struct
 	{
 		i32 option_index;
@@ -76,6 +72,7 @@ struct State
 		vf3 ralph_position;
 		vf3 ralph_velocity;
 		vf3 obstacle_position;
+		f32 distance;
 	} playing;
 
 	struct
@@ -83,4 +80,7 @@ struct State
 	} game_over;
 
 	FC_Font* font;
+	Sprite    ralph_running_sprite;
+	Sprite    ralph_exploding_sprite;
+	Sprite    sushi_sprite;
 };
