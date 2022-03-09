@@ -43,16 +43,19 @@ internal void draw_text(SDL_Renderer* renderer, FC_Font* font, vf2 coordinates, 
 
 internal void draw_sprite(SDL_Renderer* renderer, Sprite* sprite, vf2 bottom_left)
 {
-	SDL_Rect src = { sprite->frame_index * sprite->width_pixels, 0, sprite->width_pixels, sprite->height_pixels };
-	SDL_Rect dst =
-		{
-			static_cast<i32>(bottom_left.x + sprite->width_pixels * sprite->scalar * (sprite->offset.x - 1.0f)),
-			static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f + sprite->height_pixels * sprite->scalar * (sprite->offset.y - 1.0f) - bottom_left.y),
-			static_cast<i32>(sprite->width_pixels  * sprite->scalar),
-			static_cast<i32>(sprite->height_pixels * sprite->scalar)
-		};
+	if (IN_RANGE(sprite->frame_index, 0, sprite->frame_count))
+	{
+		SDL_Rect src = { sprite->frame_index * sprite->width_pixels, 0, sprite->width_pixels, sprite->height_pixels };
+		SDL_Rect dst =
+			{
+				static_cast<i32>(bottom_left.x + sprite->width_pixels * sprite->scalar * (sprite->offset.x - 1.0f)),
+				static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f + sprite->height_pixels * sprite->scalar * (sprite->offset.y - 1.0f) - bottom_left.y),
+				static_cast<i32>(sprite->width_pixels  * sprite->scalar),
+				static_cast<i32>(sprite->height_pixels * sprite->scalar)
+			};
 
-	SDL_RenderCopy(renderer, sprite->texture, &src, &dst);
+		SDL_RenderCopy(renderer, sprite->texture, &src, &dst);
+	}
 }
 
 internal void draw_crosshair(SDL_Renderer* renderer, vf2 position, f32 length)

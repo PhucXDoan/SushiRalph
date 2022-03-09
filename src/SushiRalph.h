@@ -59,6 +59,7 @@ struct State
 	f32       belt_offsets[3];
 
 	Sprite    ralph_running_sprite;
+	Sprite    ralph_exploding_sprite;
 	Sprite    sushi_sprite;
 
 	struct

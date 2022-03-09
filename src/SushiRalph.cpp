@@ -79,6 +79,16 @@ internal void age_sprite(Sprite* sprite, f32 dt)
 	if (sprite->seconds_accumulated >= sprite->seconds_per_frame)
 	{
 		sprite->seconds_accumulated -= sprite->seconds_per_frame;
+		sprite->frame_index = MINIMUM(sprite->frame_index + 1, sprite->frame_count);
+	}
+}
+
+internal void loop_sprite(Sprite* sprite, f32 dt)
+{
+	sprite->seconds_accumulated += dt;
+	if (sprite->seconds_accumulated >= sprite->seconds_per_frame)
+	{
+		sprite->seconds_accumulated -= sprite->seconds_per_frame;
 		sprite->frame_index = (sprite->frame_index + 1) % sprite->frame_count;
 	}
 }
@@ -98,8 +108,9 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	state->font = FC_CreateFont();
 	FC_LoadFont(state->font, program->renderer, "C:/code/misc/fonts/Consolas.ttf", 64, { 255, 255, 255, 255 }, TTF_STYLE_NORMAL);
 
-	state->ralph_running_sprite = load_sprite(program->renderer, "W:/data/ralph_running.bmp", 0.6f, { 0.5f, 0.5f }, 4, 0.25f);
-	state->sushi_sprite         = load_sprite(program->renderer, "W:/data/sushi.bmp", 0.1f, { 0.5f, 0.5f });
+	state->ralph_running_sprite   = load_sprite(program->renderer, "W:/data/ralph_running.bmp", 0.6f, { 0.5f, 0.5f }, 4, 0.25f);
+	state->ralph_exploding_sprite = load_sprite(program->renderer, "W:/data/ralph_exploding.bmp", 0.6f, { 0.5f, 0.5f }, 4, 0.15f);
+	state->sushi_sprite           = load_sprite(program->renderer, "W:/data/sushi.bmp", 0.1f, { 0.5f, 0.5f });
 }
 
 extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
@@ -108,6 +119,7 @@ extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
 
 	FC_FreeFont(state->font);
 	SDL_DestroyTexture(state->ralph_running_sprite.texture);
+	SDL_DestroyTexture(state->ralph_exploding_sprite.texture);
 	SDL_DestroyTexture(state->sushi_sprite.texture);
 }
 
@@ -208,40 +220,52 @@ extern "C" PROTOTYPE_UPDATE(update)
 				if (state->input.down && !state->prev_input.down && state->playing.ralph_belt_index > 0)
 				{
 					--state->playing.ralph_belt_index;
-					state->playing.ralph_position = { 250.0f, (state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT };
 				}
 				if (state->input.up && !state->prev_input.up && state->playing.ralph_belt_index < 2)
 				{
 					++state->playing.ralph_belt_index;
-					state->playing.ralph_position = { 250.0f, (state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT };
 				}
 
+				vf2 ralph_movement =
+					vf2
+					{
+						BELT_SPEED * SECONDS_PER_UPDATE,
+						dampen(0.0f, (state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT - state->playing.ralph_position.y, 32.0f, SECONDS_PER_UPDATE)
+					};
+
 				f32 collide_t;
-				if (collide_rect_rect(&collide_t, vf2 { BELT_SPEED, 0.0f } * SECONDS_PER_UPDATE, state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f, RALPH_HITBOX_DIMENSIONS, state->playing.obstacle_position - OBSTACLE_HITBOX_DIMENSIONS / 2.0f, OBSTACLE_HITBOX_DIMENSIONS))
+				if (collide_rect_rect(&collide_t, ralph_movement, state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f, RALPH_HITBOX_DIMENSIONS, state->playing.obstacle_position - OBSTACLE_HITBOX_DIMENSIONS / 2.0f, OBSTACLE_HITBOX_DIMENSIONS))
 				{
 					state->type                    = StateType::game_over;
-					state->playing.ralph_position += vf2 { BELT_SPEED, 0.0f } * SECONDS_PER_UPDATE * collide_t;
+					state->playing.ralph_position += ralph_movement * collide_t;
 
 					FOR_ELEMS(it, state->belt_offsets)
 					{
-						*it -= BELT_SPEED * SECONDS_PER_UPDATE * collide_t;
+						*it -= ralph_movement.x * collide_t;
 					}
 
-					state->playing.obstacle_position.x -= BELT_SPEED * SECONDS_PER_UPDATE * collide_t;
+					state->playing.obstacle_position.x -= ralph_movement.x * collide_t;
 
-					age_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE * collide_t);
+					loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE * collide_t);
 				}
 				else
 				{
+					state->playing.ralph_position.y += ralph_movement.y;
+
 					FOR_ELEMS(it, state->belt_offsets)
 					{
-						*it -= BELT_SPEED * SECONDS_PER_UPDATE;
+						*it -= ralph_movement.x;
 					}
 
-					state->playing.obstacle_position.x -= BELT_SPEED * SECONDS_PER_UPDATE;
+					state->playing.obstacle_position.x -= ralph_movement.x;
 
-					age_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
+					loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
 				}
+			} break;
+
+			case StateType::game_over:
+			{
+				age_sprite(&state->ralph_exploding_sprite, SECONDS_PER_UPDATE);
 			} break;
 		}
 
@@ -291,14 +315,22 @@ extern "C" PROTOTYPE_UPDATE(update)
 				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
 				draw_rect(program->renderer, state->playing.obstacle_position - OBSTACLE_HITBOX_DIMENSIONS / 2.0f, OBSTACLE_HITBOX_DIMENSIONS);
 
-				draw_sprite(program->renderer, &state->ralph_running_sprite, state->playing.ralph_position);
+				if (state->type == StateType::playing)
+				{
+					draw_sprite(program->renderer, &state->ralph_running_sprite, state->playing.ralph_position);
+				}
+				else
+				{
+					draw_sprite(program->renderer, &state->ralph_exploding_sprite, state->playing.ralph_position);
+				}
+
 				draw_sprite(program->renderer, &state->sushi_sprite, state->playing.obstacle_position);
 
 				set_color(program->renderer, { 1.0f, 0.0f, 0.0f, 1.0f });
 				draw_crosshair(program->renderer, state->playing.ralph_position, 25.0f);
 
 				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-				draw_crosshair(program->renderer, state->playing.obstacle_position, 25.0f);
+				draw_crosshair(program->renderer, state->playing.obstacle_position, 50.0f);
 			} break;
 		}
 
