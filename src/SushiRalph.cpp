@@ -9,6 +9,11 @@ internal inline f32 dampen(f32 a, f32 b, f32 k, f32 dt) { return lerp(a, b, 1.0f
 internal inline vf3 dampen(vf3 a, vf3 b, f32 k, f32 dt) { return lerp(a, b, 1.0f - expf(-k * dt)); }
 internal inline vf4 dampen(vf4 a, vf4 b, f32 k, f32 dt) { return lerp(a, b, 1.0f - expf(-k * dt)); }
 
+internal inline f32 sigmoid(f32 x, f32 k)
+{
+	return 1.0f / (1.0f + expf(-x * k));
+}
+
 internal inline f32 rng(u32* seed)
 {
 	return RAND_TABLE[++*seed % ARRAY_CAPACITY(RAND_TABLE)] / 65536.0f;
@@ -224,10 +229,18 @@ extern "C" PROTOTYPE_UPDATE(update)
 						case 0:
 						{
 							state->type                        = StateType::playing;
+							state->playing                     = {};
 							state->playing.ralph_belt_index    = 1;
 							state->playing.ralph_position      = { 250.0f, 0.0f, -1.5f * BELT_HEIGHT };
-							state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x + state->playing.obstacle_hitbox.x / 2.0f, 0.0f, -(rng(&state->seed, 0, 3) + 0.5f) * BELT_HEIGHT };
+							state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
+							state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x + state->playing.obstacle_hitbox.x / 2.0f, 0.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
 							state->playing.obstacle_hitbox     = { 60.0f, 40.0f, 200.0f };
+							state->playing.distance            = 0.0f;
+
+							FOR_ELEMS(it, state->belt_velocities)
+							{
+								*it = rng(&state->seed, -300.0f, -500.0f);
+							}
 						} break;
 
 						case 1:
@@ -246,7 +259,12 @@ extern "C" PROTOTYPE_UPDATE(update)
 					}
 				}
 
-				state->belt_offsets[1] = dampen(state->belt_offsets[1], -state->title_menu.option_index * TITLE_MENU_OPTION_SPACING, 16.0f, SECONDS_PER_UPDATE);
+				state->belt_velocities[1] = dampen(state->belt_velocities[1], (-state->belt_offsets[1] - state->title_menu.option_index * TITLE_MENU_OPTION_SPACING) * 10.0f, 16.0f, SECONDS_PER_UPDATE);
+
+				FOR_ELEMS(it, state->belt_offsets)
+				{
+					*it += state->belt_velocities[it_index] * SECONDS_PER_UPDATE;
+				}
 			} break;
 
 			case StateType::playing:
@@ -263,10 +281,12 @@ extern "C" PROTOTYPE_UPDATE(update)
 						++state->playing.ralph_belt_index;
 					}
 
+					state->ralph_running_sprite.seconds_per_frame = sigmoid(state->belt_velocities[state->playing.ralph_belt_index], 0.0075f);
+
 					state->playing.ralph_velocity.y = 0.0f;
 					if (state->input.accept && !state->prev_input.accept)
 					{
-						state->playing.ralph_velocity.y += 500.0f;
+						state->playing.ralph_velocity.y += 700.0f;
 					}
 				}
 				else
@@ -276,7 +296,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 				vf3 ralph_movement =
 					{
-						BELT_SPEED * SECONDS_PER_UPDATE,
+						0.0f,
 						state->playing.ralph_velocity.y * SECONDS_PER_UPDATE,
 						dampen(0.0f, -(state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT - state->playing.ralph_position.z, 32.0f, SECONDS_PER_UPDATE)
 					};
@@ -288,7 +308,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 					collide_rect_rect
 					(
 						&collide_t,
-						{ ralph_movement.x, ralph_movement.y },
+						{ state->belt_velocities[state->playing.obstacle_belt_index] * SECONDS_PER_UPDATE, ralph_movement.y },
 						project(state->playing.ralph_position) - RALPH_HITBOX_DIMENSIONS / 2.0f,
 						RALPH_HITBOX_DIMENSIONS,
 						project(state->playing.obstacle_position) - state->playing.obstacle_hitbox.xy / 2.0f,
@@ -296,9 +316,12 @@ extern "C" PROTOTYPE_UPDATE(update)
 					)
 				)
 				{
+					// @TODO@ When robustified the collision, make sure every thing lines up here.
 					state->type                    = StateType::game_over;
+					state->game_over               = {};
+
 					state->playing.ralph_position += ralph_movement   * collide_t;
-					state->playing.distance       += ralph_movement.x * collide_t;
+					state->playing.distance       += fabsf(state->belt_velocities[state->playing.ralph_belt_index]) * collide_t;
 
 					FOR_ELEMS(it, state->belt_offsets)
 					{
@@ -313,7 +336,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 				{
 					state->playing.ralph_position.z += ralph_movement.z;
 					state->playing.ralph_position.y += state->playing.ralph_velocity.y * SECONDS_PER_UPDATE;
-					state->playing.distance         += ralph_movement.x;
+					state->playing.distance         += fabsf(state->belt_velocities[state->playing.ralph_belt_index]) * SECONDS_PER_UPDATE;
 
 					if (state->playing.ralph_position.y <= 0.0f)
 					{
@@ -323,14 +346,15 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 					FOR_ELEMS(it, state->belt_offsets)
 					{
-						*it -= ralph_movement.x;
+						*it += state->belt_velocities[it_index] * SECONDS_PER_UPDATE;
 					}
 
-					state->playing.obstacle_position.x -= ralph_movement.x;
+					state->playing.obstacle_position.x += state->belt_velocities[state->playing.obstacle_belt_index] * SECONDS_PER_UPDATE;
 
 					if (state->playing.obstacle_position.x + state->playing.obstacle_hitbox.x / 2.0f < 0.0f)
 					{
-						state->playing.obstacle_position = { WINDOW_DIMENSIONS.x + state->playing.obstacle_hitbox.x / 2.0f, 0.0f, -(rng(&state->seed, 0, 3) + 0.5f) * BELT_HEIGHT };
+						state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
+						state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x + state->playing.obstacle_hitbox.x / 2.0f, 0.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
 					}
 				}
 			} break;
@@ -339,8 +363,13 @@ extern "C" PROTOTYPE_UPDATE(update)
 			{
 				if (state->input.accept && !state->prev_input.accept)
 				{
-					state->type                    = StateType::title_menu;
-					state->title_menu.option_index = 0;
+					state->type       = StateType::title_menu;
+					state->title_menu = {};
+
+					FOR_ELEMS(it, state->belt_velocities)
+					{
+						*it = 0.0f;
+					}
 				}
 				else
 				{
@@ -361,7 +390,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 			set_color(program->renderer, monochrome(BELT_LIGHTNESS[belt_index]));
 			draw_rect(program->renderer, { 0.0f, belt_index * BELT_HEIGHT }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT });
 
-			set_color(program->renderer, monochrome(0.5f));
+			set_color(program->renderer, monochrome(0.4f));
 			FOR_RANGE(scale_index, static_cast<i32>(WINDOW_DIMENSIONS.x / BELT_SPACING) + 2)
 			{
 				vf2 mid = { fmodf(state->belt_offsets[belt_index], BELT_SPACING) + (scale_index - 1.0f) * BELT_SPACING, (belt_index + 0.5f) * BELT_HEIGHT };

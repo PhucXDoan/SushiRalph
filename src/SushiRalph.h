@@ -4,12 +4,11 @@
 global constexpr f32 SECONDS_PER_UPDATE = 1.0f / 30.0f;
 
 // @TODO@ This isn't -9.81 because we're still using pixels!
-global constexpr f32 GRAVITY       = -750.0f;
+global constexpr f32 GRAVITY       = -981.0f;
 
 global constexpr f32 BELT_SPACING     = WINDOW_DIMENSIONS.y / 6.0f;
 global constexpr f32 BELT_HEIGHT      = WINDOW_DIMENSIONS.y / 3.0f;
 global constexpr f32 BELT_LIGHTNESS[] = { 0.6f, 0.575f, 0.625f };
-global constexpr f32 BELT_SPEED       = 360.0f;
 
 global constexpr vf2 RALPH_HITBOX_DIMENSIONS    = { 115.0f, 80.0f };
 
@@ -98,6 +97,7 @@ struct State
 
 	StateType type;
 	f32       belt_offsets[3];
+	f32       belt_velocities[3];
 
 	struct
 	{
@@ -109,6 +109,7 @@ struct State
 		i32 ralph_belt_index;
 		vf3 ralph_position;
 		vf3 ralph_velocity;
+		i32 obstacle_belt_index;
 		vf3 obstacle_position;
 		vf3 obstacle_hitbox;
 		f32 distance;
