@@ -6,7 +6,7 @@ internal vf4 monochrome(f32 k, f32 a = 1.0f)
 internal void set_color(SDL_Renderer* renderer, vf4 rgba)
 {
 	rgba *= 255.0f;
-	SDL_SetRenderDrawColor(renderer, static_cast<u8>(rgba.x), static_cast<u8>(rgba.r), static_cast<u8>(rgba.b), static_cast<u8>(rgba.a));
+	SDL_SetRenderDrawColor(renderer, static_cast<u8>(rgba.r), static_cast<u8>(rgba.g), static_cast<u8>(rgba.b), static_cast<u8>(rgba.a));
 }
 
 internal inline void draw_line(SDL_Renderer* renderer, vf2 start, vf2 end)
@@ -46,11 +46,17 @@ internal void draw_sprite(SDL_Renderer* renderer, Sprite* sprite, vf2 bottom_lef
 	SDL_Rect src = { sprite->frame_index * sprite->width_pixels, 0, sprite->width_pixels, sprite->height_pixels };
 	SDL_Rect dst =
 		{
-			static_cast<i32>(bottom_left.x),
-			static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - sprite->height_pixels * sprite->scalar - bottom_left.y),
+			static_cast<i32>(bottom_left.x + sprite->width_pixels * sprite->scalar * (sprite->offset.x - 1.0f)),
+			static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f + sprite->height_pixels * sprite->scalar * (sprite->offset.y - 1.0f) - bottom_left.y),
 			static_cast<i32>(sprite->width_pixels  * sprite->scalar),
 			static_cast<i32>(sprite->height_pixels * sprite->scalar)
 		};
 
 	SDL_RenderCopy(renderer, sprite->texture, &src, &dst);
+}
+
+internal void draw_crosshair(SDL_Renderer* renderer, vf2 position, f32 length)
+{
+	draw_line(renderer, position - vf2 { length,   0.0f }, position + vf2 { length,  0.0f });
+	draw_line(renderer, position - vf2 {   0.0f, length }, position + vf2 {  0.0f, length });
 }

@@ -9,7 +9,47 @@ internal inline f32 dampen(f32 a, f32 b, f32 k, f32 dt) { return lerp(a, b, 1.0f
 internal inline vf3 dampen(vf3 a, vf3 b, f32 k, f32 dt) { return lerp(a, b, 1.0f - expf(-k * dt)); }
 internal inline vf4 dampen(vf4 a, vf4 b, f32 k, f32 dt) { return lerp(a, b, 1.0f - expf(-k * dt)); }
 
-internal Sprite load_sprite(SDL_Renderer* renderer, strlit file_path, f32 scalar, i32 frame_count = 1, f32 seconds_per_frame = 0.0f)
+internal bool32 collide_rect_rect(f32* result, vf2 ray, vf2 bottom_left_a, vf2 dimensions_a, vf2 bottom_left_b, vf2 dimensions_b)
+{
+	vf2 delta = bottom_left_b - bottom_left_a;
+	f32 ts[] =
+		{
+			(delta.x - dimensions_a.x) / ray.x,
+			(delta.x + dimensions_b.x) / ray.x,
+			(delta.y - dimensions_a.y) / ray.y,
+			(delta.y + dimensions_b.y) / ray.y
+		};
+
+	bool32 bs[] =
+		{
+			ts[0] >= 0.0f && IN_RANGE(ts[0] * ray.y - delta.y, -dimensions_a.y, dimensions_b.y),
+			ts[1] >= 0.0f && IN_RANGE(ts[1] * ray.y - delta.y, -dimensions_a.y, dimensions_b.y),
+			ts[2] >= 0.0f && IN_RANGE(ts[2] * ray.x - delta.x, -dimensions_a.x, dimensions_b.x),
+			ts[3] >= 0.0f && IN_RANGE(ts[3] * ray.x - delta.x, -dimensions_a.x, dimensions_b.x)
+		};
+
+	FOR_ELEMS(t, ts)
+	{
+		if (!bs[t_index])
+		{
+			*t = INFINITY;
+		}
+	}
+
+	f32 t = MINIMUM(MINIMUM(ts[0], ts[1]), MINIMUM(ts[2], ts[3]));
+
+	if (t == INFINITY || t > 1.0f)
+	{
+		return false;
+	}
+	else
+	{
+		*result = t;
+		return true;
+	}
+}
+
+internal Sprite load_sprite(SDL_Renderer* renderer, strlit file_path, f32 scalar, vf2 offset, i32 frame_count = 1, f32 seconds_per_frame = 0.0f)
 {
 	SDL_Surface* sprite_surface = SDL_LoadBMP(file_path);
 	DEFER { SDL_FreeSurface(sprite_surface); };
@@ -23,8 +63,8 @@ internal Sprite load_sprite(SDL_Renderer* renderer, strlit file_path, f32 scalar
 	SDL_QueryTexture(sprite.texture, 0, 0, &sprite.width_pixels, &sprite.height_pixels);
 	sprite.width_pixels /= frame_count;
 
-	sprite.scalar = scalar;
-
+	sprite.scalar              = scalar;
+	sprite.offset              = offset;
 	sprite.frame_index         = 0;
 	sprite.frame_count         = frame_count;
 	sprite.seconds_per_frame   = seconds_per_frame;
@@ -58,8 +98,8 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	state->font = FC_CreateFont();
 	FC_LoadFont(state->font, program->renderer, "C:/code/misc/fonts/Consolas.ttf", 64, { 255, 255, 255, 255 }, TTF_STYLE_NORMAL);
 
-	state->ralph_running_sprite = load_sprite(program->renderer, "W:/data/ralph_running.bmp", 0.4f, 2, 0.25f);
-	state->sushi_sprite         = load_sprite(program->renderer, "W:/data/sushi.bmp", 0.1f);
+	state->ralph_running_sprite = load_sprite(program->renderer, "W:/data/ralph_running.bmp", 0.6f, { 0.5f, 0.5f }, 4, 0.25f);
+	state->sushi_sprite         = load_sprite(program->renderer, "W:/data/sushi.bmp", 0.1f, { 0.5f, 0.5f });
 }
 
 extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
@@ -139,6 +179,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 						{
 							state->type                      = StateType::playing;
 							state->playing.ralph_belt_index  = 1;
+							state->playing.ralph_position    = { 250.0f, (state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT };
 							state->playing.obstacle_position = { 750.0f, (1.0f + 0.5f) * BELT_HEIGHT };
 						} break;
 
@@ -167,20 +208,40 @@ extern "C" PROTOTYPE_UPDATE(update)
 				if (state->input.down && !state->prev_input.down && state->playing.ralph_belt_index > 0)
 				{
 					--state->playing.ralph_belt_index;
+					state->playing.ralph_position = { 250.0f, (state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT };
 				}
 				if (state->input.up && !state->prev_input.up && state->playing.ralph_belt_index < 2)
 				{
 					++state->playing.ralph_belt_index;
+					state->playing.ralph_position = { 250.0f, (state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT };
 				}
 
-				FOR_ELEMS(it, state->belt_offsets)
+				f32 collide_t;
+				if (collide_rect_rect(&collide_t, vf2 { BELT_SPEED, 0.0f } * SECONDS_PER_UPDATE, state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f, RALPH_HITBOX_DIMENSIONS, state->playing.obstacle_position - OBSTACLE_HITBOX_DIMENSIONS / 2.0f, OBSTACLE_HITBOX_DIMENSIONS))
 				{
-					*it -= BELT_SPEED * SECONDS_PER_UPDATE;
+					state->type                    = StateType::game_over;
+					state->playing.ralph_position += vf2 { BELT_SPEED, 0.0f } * SECONDS_PER_UPDATE * collide_t;
+
+					FOR_ELEMS(it, state->belt_offsets)
+					{
+						*it -= BELT_SPEED * SECONDS_PER_UPDATE * collide_t;
+					}
+
+					state->playing.obstacle_position.x -= BELT_SPEED * SECONDS_PER_UPDATE * collide_t;
+
+					age_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE * collide_t);
 				}
+				else
+				{
+					FOR_ELEMS(it, state->belt_offsets)
+					{
+						*it -= BELT_SPEED * SECONDS_PER_UPDATE;
+					}
 
-				state->playing.obstacle_position.x -= BELT_SPEED * SECONDS_PER_UPDATE;
+					state->playing.obstacle_position.x -= BELT_SPEED * SECONDS_PER_UPDATE;
 
-				age_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
+					age_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
+				}
 			} break;
 		}
 
@@ -222,9 +283,22 @@ extern "C" PROTOTYPE_UPDATE(update)
 			} break;
 
 			case StateType::playing:
+			case StateType::game_over:
 			{
-				draw_sprite(program->renderer, &state->ralph_running_sprite, { 250.0f, (state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT });
+				set_color(program->renderer, { 0.0f, 1.0f, 0.0f, 1.0f });
+				draw_rect(program->renderer, state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f, RALPH_HITBOX_DIMENSIONS);
+
+				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
+				draw_rect(program->renderer, state->playing.obstacle_position - OBSTACLE_HITBOX_DIMENSIONS / 2.0f, OBSTACLE_HITBOX_DIMENSIONS);
+
+				draw_sprite(program->renderer, &state->ralph_running_sprite, state->playing.ralph_position);
 				draw_sprite(program->renderer, &state->sushi_sprite, state->playing.obstacle_position);
+
+				set_color(program->renderer, { 1.0f, 0.0f, 0.0f, 1.0f });
+				draw_crosshair(program->renderer, state->playing.ralph_position, 25.0f);
+
+				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
+				draw_crosshair(program->renderer, state->playing.obstacle_position, 25.0f);
 			} break;
 		}
 

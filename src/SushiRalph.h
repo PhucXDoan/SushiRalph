@@ -6,7 +6,10 @@ global constexpr f32 SECONDS_PER_UPDATE = 1.0f / 30.0f;
 global constexpr f32 BELT_SPACING     = WINDOW_DIMENSIONS.y / 6.0f;
 global constexpr f32 BELT_HEIGHT      = WINDOW_DIMENSIONS.y / 3.0f;
 global constexpr f32 BELT_LIGHTNESS[] = { 0.6f, 0.575f, 0.625f };
-global constexpr f32 BELT_SPEED       = 100.0f;
+global constexpr f32 BELT_SPEED       = 150.0f;
+
+global constexpr vf2 RALPH_HITBOX_DIMENSIONS    = { 115.0f, 80.0f };
+global constexpr vf2 OBSTACLE_HITBOX_DIMENSIONS = { 60.0f, 45.0f };
 
 global constexpr f32    TITLE_MENU_OPTION_SPACING = 250.0f;
 global constexpr strlit TITLE_MENU_OPTIONS[] =
@@ -23,6 +26,7 @@ struct Sprite
 	i32          width_pixels;
 	i32          height_pixels;
 	f32          scalar;
+	vf2          offset;
 	i32          frame_index;
 	i32          frame_count;
 	f32          seconds_per_frame;
@@ -41,7 +45,8 @@ struct Input
 enum_struct (StateType, u32)
 {
 	title_menu = 1,
-	playing
+	playing,
+	game_over
 };
 
 struct State
@@ -64,8 +69,13 @@ struct State
 	struct
 	{
 		i32 ralph_belt_index;
+		vf2 ralph_position;
 		vf2 obstacle_position;
 	} playing;
+
+	struct
+	{
+	} game_over;
 
 	FC_Font* font;
 };
