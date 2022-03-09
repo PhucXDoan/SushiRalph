@@ -1,19 +1,19 @@
 #pragma once
 #include "platform.h"
 
-global constexpr f32 SECONDS_PER_UPDATE = 1.0f / 30.0f;
+global constexpr f32 SECONDS_PER_UPDATE        = 1.0f / 30.0f;
+global constexpr f32 PIXELS_PER_METER          = 128.0f;
+global constexpr f32 GRAVITY                   = -9.81f;
 
-// @TODO@ This isn't -9.81 because we're still using pixels!
-global constexpr f32 GRAVITY       = -981.0f;
+global constexpr f32 BELT_SPACING              = 0.25f;
+global constexpr f32 BELT_HEIGHT               = 0.75f;
+global constexpr f32 BELT_LIGHTNESS[]          = { 0.6f, 0.575f, 0.625f };
 
-global constexpr f32 BELT_SPACING     = WINDOW_DIMENSIONS.y / 6.0f;
-global constexpr f32 BELT_HEIGHT      = WINDOW_DIMENSIONS.y / 3.0f;
-global constexpr f32 BELT_LIGHTNESS[] = { 0.6f, 0.575f, 0.625f };
+global constexpr vf2 RALPH_HITBOX_DIMENSIONS   = { 0.46f, 0.3f };
+global constexpr f32 RALPH_BELT_OFFSET_Z       = 0.0f;
 
-global constexpr vf2 RALPH_HITBOX_DIMENSIONS    = { 115.0f, 80.0f };
-
-global constexpr f32    TITLE_MENU_OPTION_SPACING = 250.0f;
-global constexpr strlit TITLE_MENU_OPTIONS[] =
+global constexpr f32    TITLE_MENU_OPTION_SPACING = 2.0f;
+global constexpr strlit TITLE_MENU_OPTIONS[]      =
 	{
 		"Play",
 		"Options",

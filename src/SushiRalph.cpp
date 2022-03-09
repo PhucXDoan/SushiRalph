@@ -147,9 +147,9 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	state->font = FC_CreateFont();
 	FC_LoadFont(state->font, program->renderer, "C:/code/misc/fonts/Consolas.ttf", 64, { 255, 255, 255, 255 }, TTF_STYLE_NORMAL);
 
-	state->ralph_running_sprite   = load_sprite(program->renderer, "W:/data/ralph_running.bmp", 0.6f, { 0.5f, 0.5f }, 4, 0.25f);
-	state->ralph_exploding_sprite = load_sprite(program->renderer, "W:/data/ralph_exploding.bmp", 0.6f, { 0.5f, 0.5f }, 4, 0.15f);
-	state->sushi_sprite           = load_sprite(program->renderer, "W:/data/sushi.bmp", 0.1f, { 0.5f, 0.5f });
+	state->ralph_running_sprite   = load_sprite(program->renderer, "W:/data/ralph_running.bmp", 0.6f, { 0.5f, 0.4f }, 4, 0.25f);
+	state->ralph_exploding_sprite = load_sprite(program->renderer, "W:/data/ralph_exploding.bmp", 0.6f, { 0.5f, 0.4f }, 4, 0.15f);
+	state->sushi_sprite           = load_sprite(program->renderer, "W:/data/sushi.bmp", 0.15f, { 0.5f, 0.5f });
 }
 
 extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
@@ -222,6 +222,13 @@ extern "C" PROTOTYPE_UPDATE(update)
 					++state->title_menu.option_index;
 				}
 
+				state->belt_velocities[1] = dampen(state->belt_velocities[1], (-state->belt_offsets[1] - state->title_menu.option_index * TITLE_MENU_OPTION_SPACING) * 10.0f, 16.0f, SECONDS_PER_UPDATE);
+
+				FOR_ELEMS(it, state->belt_offsets)
+				{
+					*it += state->belt_velocities[it_index] * SECONDS_PER_UPDATE;
+				}
+
 				if (state->input.accept && !state->prev_input.accept)
 				{
 					switch (state->title_menu.option_index)
@@ -231,15 +238,14 @@ extern "C" PROTOTYPE_UPDATE(update)
 							state->type                        = StateType::playing;
 							state->playing                     = {};
 							state->playing.ralph_belt_index    = 1;
-							state->playing.ralph_position      = { 250.0f, 0.0f, -1.5f * BELT_HEIGHT };
+							state->playing.ralph_position      = { 1.0f, 0.0f, (-1.5f + RALPH_BELT_OFFSET_Z) * BELT_HEIGHT };
 							state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
-							state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x + state->playing.obstacle_hitbox.x / 2.0f, 0.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
-							state->playing.obstacle_hitbox     = { 60.0f, 40.0f, 200.0f };
-							state->playing.distance            = 0.0f;
+							state->playing.obstacle_position   = { 7.0f, 0.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
+							state->playing.obstacle_hitbox     = { 0.55f, 0.2f, 0.2f };
 
 							FOR_ELEMS(it, state->belt_velocities)
 							{
-								*it = rng(&state->seed, -300.0f, -500.0f);
+								*it = rng(&state->seed, -2.0f, -3.5f);
 							}
 						} break;
 
@@ -258,18 +264,11 @@ extern "C" PROTOTYPE_UPDATE(update)
 						} break;
 					}
 				}
-
-				state->belt_velocities[1] = dampen(state->belt_velocities[1], (-state->belt_offsets[1] - state->title_menu.option_index * TITLE_MENU_OPTION_SPACING) * 10.0f, 16.0f, SECONDS_PER_UPDATE);
-
-				FOR_ELEMS(it, state->belt_offsets)
-				{
-					*it += state->belt_velocities[it_index] * SECONDS_PER_UPDATE;
-				}
 			} break;
 
 			case StateType::playing:
 			{
-				if (state->playing.ralph_position.y <= 0.0f)
+				if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 				{
 					// @TODO@ Make holding down work nicely.
 					if (state->input.down && !state->prev_input.down && state->playing.ralph_belt_index > 0)
@@ -281,12 +280,12 @@ extern "C" PROTOTYPE_UPDATE(update)
 						++state->playing.ralph_belt_index;
 					}
 
-					state->ralph_running_sprite.seconds_per_frame = sigmoid(state->belt_velocities[state->playing.ralph_belt_index], 0.0075f);
+					state->ralph_running_sprite.seconds_per_frame = sigmoid(state->belt_velocities[state->playing.ralph_belt_index], 0.75f);
 
 					state->playing.ralph_velocity.y = 0.0f;
 					if (state->input.accept && !state->prev_input.accept)
 					{
-						state->playing.ralph_velocity.y += 700.0f;
+						state->playing.ralph_velocity.y += 4.0f;
 					}
 				}
 				else
@@ -298,7 +297,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 					{
 						0.0f,
 						state->playing.ralph_velocity.y * SECONDS_PER_UPDATE,
-						dampen(0.0f, -(state->playing.ralph_belt_index + 0.5f) * BELT_HEIGHT - state->playing.ralph_position.z, 32.0f, SECONDS_PER_UPDATE)
+						dampen(0.0f, (-state->playing.ralph_belt_index - 0.5f + RALPH_BELT_OFFSET_Z) * BELT_HEIGHT - state->playing.ralph_position.z, 32.0f, SECONDS_PER_UPDATE)
 					};
 
 				f32 collide_t;
@@ -338,9 +337,9 @@ extern "C" PROTOTYPE_UPDATE(update)
 					state->playing.ralph_position.y += state->playing.ralph_velocity.y * SECONDS_PER_UPDATE;
 					state->playing.distance         += fabsf(state->belt_velocities[state->playing.ralph_belt_index]) * SECONDS_PER_UPDATE;
 
-					if (state->playing.ralph_position.y <= 0.0f)
+					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 					{
-						state->playing.ralph_position.y = 0.0f;
+						state->playing.ralph_position.y = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
 						loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
 					}
 
@@ -354,7 +353,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 					if (state->playing.obstacle_position.x + state->playing.obstacle_hitbox.x / 2.0f < 0.0f)
 					{
 						state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
-						state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x + state->playing.obstacle_hitbox.x / 2.0f, 0.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
+						state->playing.obstacle_position   = { 7.0f, 0.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
 					}
 				}
 			} break;
@@ -388,30 +387,30 @@ extern "C" PROTOTYPE_UPDATE(update)
 		FOR_RANGE(belt_index, 3)
 		{
 			set_color(program->renderer, monochrome(BELT_LIGHTNESS[belt_index]));
-			draw_rect(program->renderer, { 0.0f, belt_index * BELT_HEIGHT }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT });
+			draw_rect(program->renderer, { 0.0f, belt_index * BELT_HEIGHT * PIXELS_PER_METER }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER });
 
 			set_color(program->renderer, monochrome(0.4f));
-			FOR_RANGE(scale_index, static_cast<i32>(WINDOW_DIMENSIONS.x / BELT_SPACING) + 2)
+			FOR_RANGE(scale_index, static_cast<i32>(WINDOW_DIMENSIONS.x / (BELT_SPACING * PIXELS_PER_METER)) + 2)
 			{
 				vf2 mid = { fmodf(state->belt_offsets[belt_index], BELT_SPACING) + (scale_index - 1.0f) * BELT_SPACING, (belt_index + 0.5f) * BELT_HEIGHT };
-				draw_line(program->renderer, mid, mid + vf2 { BELT_SPACING, -BELT_HEIGHT / 2.0f });
-				draw_line(program->renderer, mid, mid + vf2 { BELT_SPACING,  BELT_HEIGHT / 2.0f });
+				draw_line(program->renderer, mid * PIXELS_PER_METER, (mid + vf2 { BELT_SPACING, -BELT_HEIGHT / 2.0f }) * PIXELS_PER_METER);
+				draw_line(program->renderer, mid * PIXELS_PER_METER, (mid + vf2 { BELT_SPACING,  BELT_HEIGHT / 2.0f }) * PIXELS_PER_METER);
 			}
 		}
 
 		set_color(program->renderer, { 1.0f, 1.0f, 1.0f, 1.0f });
-		draw_line(program->renderer, { 0.0f, WINDOW_DIMENSIONS.y        / 3.0f }, { WINDOW_DIMENSIONS.x, WINDOW_DIMENSIONS.y        / 3.0f });
-		draw_line(program->renderer, { 0.0f, WINDOW_DIMENSIONS.y * 2.0f / 3.0f }, { WINDOW_DIMENSIONS.x, WINDOW_DIMENSIONS.y * 2.0f / 3.0f });
+		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER        }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER        });
+		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER * 2.0f }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER * 2.0f });
 
 		switch (state->type)
 		{
 			case StateType::title_menu:
 			{
-				draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f + vf2 { 0.0f, BELT_HEIGHT - FC_GetBaseline(state->font) / 2.0f }, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Sushi Ralph");
+				draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f, 2.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f }, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Sushi Ralph");
 
 				FOR_ELEMS(it, TITLE_MENU_OPTIONS)
 				{
-					draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f + vf2 { it_index * TITLE_MENU_OPTION_SPACING + state->belt_offsets[1], -10.0f }, FC_ALIGN_CENTER, 0.7f, { 1.0f, 1.0f, 1.0f, 1.0f }, "%s", *it);
+					draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f + (it_index * TITLE_MENU_OPTION_SPACING + state->belt_offsets[1]) * PIXELS_PER_METER, 1.4f * BELT_HEIGHT * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.7f, { 1.0f, 1.0f, 1.0f, 1.0f }, "%s", *it);
 				}
 			} break;
 
@@ -419,31 +418,30 @@ extern "C" PROTOTYPE_UPDATE(update)
 			case StateType::game_over:
 			{
 				set_color(program->renderer, { 0.0f, 1.0f, 0.0f, 1.0f });
-				draw_rect(program->renderer, project(state->playing.ralph_position) - RALPH_HITBOX_DIMENSIONS / 2.0f, RALPH_HITBOX_DIMENSIONS);
+				draw_rect(program->renderer, (project(state->playing.ralph_position) - RALPH_HITBOX_DIMENSIONS / 2.0f) * PIXELS_PER_METER, RALPH_HITBOX_DIMENSIONS * PIXELS_PER_METER);
 
 				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-				draw_rect(program->renderer, project(state->playing.obstacle_position) - state->playing.obstacle_hitbox.xy / 2.0f, state->playing.obstacle_hitbox.xy);
+				draw_rect(program->renderer, (project(state->playing.obstacle_position) - state->playing.obstacle_hitbox.xy / 2.0f) * PIXELS_PER_METER, state->playing.obstacle_hitbox.xy * PIXELS_PER_METER);
 
-				draw_sprite(program->renderer, &state->sushi_sprite, project(state->playing.obstacle_position));
+				draw_sprite(program->renderer, &state->sushi_sprite, project(state->playing.obstacle_position) * PIXELS_PER_METER);
 
 				if (state->type == StateType::playing)
 				{
-					draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
+					draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position) * PIXELS_PER_METER);
 
 					set_color(program->renderer, { 1.0f, 0.0f, 0.0f, 1.0f });
-					draw_crosshair(program->renderer, project(state->playing.ralph_position), 25.0f);
+					draw_crosshair(program->renderer, project(state->playing.ralph_position) * PIXELS_PER_METER, 25.0f);
 
 					set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-					draw_crosshair(program->renderer, project(state->playing.obstacle_position), 50.0f);
+					draw_crosshair(program->renderer, project(state->playing.obstacle_position) * PIXELS_PER_METER, 50.0f);
 				}
 				else
 				{
-					draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
+					draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position) * PIXELS_PER_METER);
 
 					draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "GAME OVER");
 					draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Distance : %f", state->playing.distance);
 				}
-
 			} break;
 		}
 
