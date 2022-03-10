@@ -2,6 +2,7 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include <SDL_FontCache.h>
+#include <SDL_Mixer.h>
 #include "unified.h"
 
 global constexpr strlit  PROGRAM_DLL_FILE_PATH      = "W:/build/SushiRalph.dll";

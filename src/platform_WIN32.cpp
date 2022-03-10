@@ -40,7 +40,7 @@ internal void reload_program_dll(HotloadingData* hotloading_data)
 
 int main(int, char**)
 {
-	if (SDL_Init(SDL_INIT_VIDEO) < 0)
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
 	{
 		DEBUG_printf("SDL_Error: '%s'\n", SDL_GetError());
 		ASSERT(!"SDL could not initialize video.");
@@ -51,6 +51,13 @@ int main(int, char**)
 	{
 		DEBUG_printf("TTF_Error: '%s'\n", TTF_GetError());
 		ASSERT(!"SDL_ttf could not initialize.");
+		exit(-1);
+	}
+
+	if (Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 8, 512) == -1)
+	{
+		DEBUG_printf("MIX_Error: '%s'\n", Mix_GetError());
+		ASSERT(!"SDL_mixer could not initialize.");
 		exit(-1);
 	}
 

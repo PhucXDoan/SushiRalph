@@ -157,4 +157,6 @@ struct State
 	Sprite   ralph_running_sprite;
 	Sprite   ralph_exploding_sprite;
 	Sprite   obstacle_sprites[ARRAY_CAPACITY(OBSTACLE_ASSETS)];
+
+	Mix_Chunk* explosion_audio;
 };

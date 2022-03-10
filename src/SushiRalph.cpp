@@ -148,6 +148,8 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 		state->obstacle_sprites[asset_index] = load_sprite(program->renderer, asset->file_path, asset->scalar, asset->origin);
 	}
 
+	state->explosion_audio = Mix_LoadWAV("W:/data/explosion.wav");
+
 	FILE* save_data;
 	errno_t save_data_error = fopen_s(&save_data, SAVE_DATA_FILE_PATH, "rb");
 
@@ -165,6 +167,8 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
 {
 	State* state = reinterpret_cast<State*>(program->memory);
+
+	Mix_FreeChunk(state->explosion_audio);
 
 	FILE* save_data;
 	errno_t save_data_error = fopen_s(&save_data, SAVE_DATA_FILE_PATH, "wb");
@@ -241,7 +245,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 			{
 				if (state->title_menu.resetting_keytime < 1.0f)
 				{
-					state->title_menu.resetting_keytime += SECONDS_PER_UPDATE / 2.0f;
+					state->title_menu.resetting_keytime += SECONDS_PER_UPDATE / 1.0f;
 
 					if (state->title_menu.resetting_keytime >= 1.0f)
 					{
@@ -411,6 +415,8 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 				if (collided)
 				{
+					Mix_PlayChannel(-1, state->explosion_audio, 0);
+
 					FOR_ELEMS(it, state->belt_offsets)
 					{
 						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE * collide_t;
@@ -485,7 +491,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 					FOR_ELEMS(it, state->title_menu.initial_belt_offsets)
 					{
-						*it = TITLE_MENU_OPTIONS_WIDTH + fmodf(state->belt_offsets[it_index], BELT_SPACING);
+						*it = TITLE_MENU_OPTIONS_WIDTH + fmodf(state->belt_offsets[it_index], BELT_SPACING) + rng(&state->seed, 0, 16) * BELT_SPACING;
 						state->belt_offsets[it_index] = *it;
 					}
 				}
