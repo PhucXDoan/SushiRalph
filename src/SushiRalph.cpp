@@ -216,13 +216,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 					{
 						state->title_menu.playing_keytime = 1.0f;
 
-						state->type                        = StateType::playing;
-						state->playing                     = {};
-						state->playing.ralph_belt_index    = 1;
-						state->playing.ralph_position      = { RALPH_X, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
-						state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
-						state->playing.obstacle_hitbox     = { 0.6f, 0.5f, 0.2f };
-						state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + state->playing.obstacle_hitbox.x / 2.0f, state->playing.obstacle_hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
+						state->type = StateType::playing;
 					}
 				}
 				else
@@ -252,7 +246,12 @@ extern "C" PROTOTYPE_UPDATE(update)
 									*it = rng(&state->seed, -1.5f, -4.0f);
 								}
 
-								state->playing.ralph_position = { 0.0f, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
+								state->playing                     = {};
+								state->playing.ralph_belt_index    = 1;
+								state->playing.ralph_position      = { 0.0f, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
+								state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
+								state->playing.obstacle_hitbox     = { 0.6f, 0.5f, 0.2f };
+								state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + state->playing.obstacle_hitbox.x / 2.0f, state->playing.obstacle_hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
 							} break;
 
 							case 1:
@@ -439,47 +438,57 @@ extern "C" PROTOTYPE_UPDATE(update)
 		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER        }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER        });
 		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER * 2.0f }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER * 2.0f });
 
-		switch (state->type)
+		draw_text
+		(
+			program->renderer,
+			state->font,
+			{ WINDOW_DIMENSIONS.x / 2.0f + state->belt_offsets[2] * PIXELS_PER_METER, 2.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f },
+			FC_ALIGN_CENTER,
+			1.0f,
+			{ 1.0f, 1.0f, 1.0f, 1.0f },
+			"Sushi Ralph"
+		);
+
+		FOR_ELEMS(it, TITLE_MENU_OPTIONS)
 		{
-			case StateType::title_menu:
-			{
-				draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f, 2.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f }, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Sushi Ralph");
-
-				FOR_ELEMS(it, TITLE_MENU_OPTIONS)
-				{
-					draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f + (it_index * TITLE_MENU_OPTION_SPACING + state->belt_offsets[1]) * PIXELS_PER_METER, 1.4f * BELT_HEIGHT * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.7f, { 1.0f, 1.0f, 1.0f, 1.0f }, "%s", *it);
-				}
-
-				if (state->title_menu.playing_keytime != -1.0f)
-				{
-					draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
-				}
-			} break;
-
-			case StateType::playing:
-			case StateType::game_over:
-			{
-				draw_sprite(program->renderer, &state->sushi_sprite, project(state->playing.obstacle_position));
-
-				if (state->type == StateType::playing)
-				{
-					draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
-					draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f, (3.5f * BELT_HEIGHT) * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.dampen_calories_burned);
-				}
-				else
-				{
-					draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
-					draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "GAME OVER");
-					draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.calories_burned);
-				}
-
-				set_color(program->renderer, { 0.0f, 1.0f, 0.0f, 1.0f });
-				draw_hitbox(program->renderer, state->playing.ralph_position, RALPH_HITBOX_DIMENSIONS);
-
-				set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-				draw_hitbox(program->renderer, state->playing.obstacle_position, state->playing.obstacle_hitbox);
-			} break;
+			draw_text
+			(
+				program->renderer,
+				state->font,
+				{ WINDOW_DIMENSIONS.x / 2.0f + (it_index * TITLE_MENU_OPTION_SPACING + state->belt_offsets[1]) * PIXELS_PER_METER, 1.4f * BELT_HEIGHT * PIXELS_PER_METER },
+				FC_ALIGN_CENTER,
+				0.7f,
+				{ 1.0f, 1.0f, 1.0f, 1.0f },
+				"%s", *it
+			);
 		}
+
+		if (state->type == StateType::title_menu && state->title_menu.playing_keytime != -1.0f || state->type == StateType::playing)
+		{
+			draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
+			draw_sprite(program->renderer, &state->sushi_sprite, project(state->playing.obstacle_position));
+			draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f, (3.5f * BELT_HEIGHT) * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.dampen_calories_burned);
+
+			set_color(program->renderer, { 0.0f, 1.0f, 0.0f, 1.0f });
+			draw_hitbox(program->renderer, state->playing.ralph_position, RALPH_HITBOX_DIMENSIONS);
+
+			set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
+			draw_hitbox(program->renderer, state->playing.obstacle_position, state->playing.obstacle_hitbox);
+		}
+		else if (state->type == StateType::game_over)
+		{
+			draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
+			draw_sprite(program->renderer, &state->sushi_sprite, project(state->playing.obstacle_position));
+			draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "GAME OVER");
+			draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.calories_burned);
+
+			set_color(program->renderer, { 0.0f, 1.0f, 0.0f, 1.0f });
+			draw_hitbox(program->renderer, state->playing.ralph_position, RALPH_HITBOX_DIMENSIONS);
+
+			set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
+			draw_hitbox(program->renderer, state->playing.obstacle_position, state->playing.obstacle_hitbox);
+		}
+
 
 		SDL_RenderPresent(program->renderer);
 
