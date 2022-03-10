@@ -11,7 +11,6 @@ global constexpr f32 CALORIES_PER_JUMP             = 8.0f;
 global constexpr f32 BELT_SPACING              = 0.5f;
 global constexpr f32 BELT_HEIGHT               = 0.75f;
 global constexpr f32 BELT_LIGHTNESS[]          = { 0.6f, 0.575f, 0.625f };
-global constexpr f32 BELT_DAMPENING            = 16.0f;
 
 global constexpr vf3 RALPH_HITBOX_DIMENSIONS   = { 0.6f, 0.6f, 0.075f };
 global constexpr f32 RALPH_X                   = 4.0f;

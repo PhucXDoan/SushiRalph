@@ -204,7 +204,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 			{
 				FOR_ELEMS(it, state->dampen_belt_velocities)
 				{
-					*it = dampen(*it, state->belt_velocities[it_index], BELT_DAMPENING, SECONDS_PER_UPDATE);
+					*it = dampen(*it, state->belt_velocities[it_index], 24.0f, SECONDS_PER_UPDATE);
 				}
 
 				FOR_ELEMS(it, state->belt_offsets)
@@ -233,6 +233,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 							FOR_ELEMS(it, state->belt_velocities)
 							{
 								*it = rng(&state->seed, -1.5f, -4.0f);
+								state->dampen_belt_velocities[it_index] = MINIMUM(0.0f, state->dampen_belt_velocities[it_index]);
 							}
 
 							state->type                        = StateType::playing;
@@ -263,142 +264,134 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 			case StateType::playing:
 			{
-
 				if (state->playing.intro_keytime < 1.0f)
 				{
 					state->playing.intro_keytime += SECONDS_PER_UPDATE / 1.0f;
 
 					if (state->playing.intro_keytime > 1.0f)
 					{
-						state->playing.intro_keytime = 1.0f;
+						state->playing.intro_keytime    = 1.0f;
+						state->playing.ralph_position.x = RALPH_X;
+						state->playing.ralph_velocity.x = 0.0f;
+					}
+					else
+					{
+						state->playing.ralph_velocity.x = (lerp(0.0f, RALPH_X, ease_in(state->playing.intro_keytime)) - state->playing.ralph_position.x) / SECONDS_PER_UPDATE;
+					}
+				}
+
+				FOR_ELEMS(it, state->dampen_belt_velocities)
+				{
+					*it = dampen(*it, state->belt_velocities[it_index], 1.0f, SECONDS_PER_UPDATE);
+				}
+
+				if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
+				{
+					// @TODO@ Make holding down work nicely.
+					if (state->input.down && !state->prev_input.down && state->playing.ralph_belt_index > 0)
+					{
+						--state->playing.ralph_belt_index;
+						state->playing.calories_burned += CALORIES_PER_SWITCH;
+					}
+					if (state->input.up && !state->prev_input.up && state->playing.ralph_belt_index < 2)
+					{
+						++state->playing.ralph_belt_index;
+						state->playing.calories_burned += CALORIES_PER_SWITCH;
+					}
+
+					state->ralph_running_sprite.seconds_per_frame = sigmoid(state->playing.ralph_velocity.x - state->dampen_belt_velocities[state->playing.ralph_belt_index], -0.75f);
+
+					state->playing.ralph_velocity.y = 0.0f;
+					if (state->input.accept && !state->prev_input.accept)
+					{
+						state->playing.ralph_velocity.y += 5.0f;
+						state->playing.calories_burned  += CALORIES_PER_JUMP;
+					}
+				}
+				else
+				{
+					state->playing.ralph_velocity.y += GRAVITY * SECONDS_PER_UPDATE;
+				}
+
+				state->playing.ralph_velocity.z = ((-state->playing.ralph_belt_index - 0.5f) * BELT_HEIGHT - state->playing.ralph_position.z) * 10.0f;
+
+				vf3 obstacle_velocity =
+					{
+						state->dampen_belt_velocities[state->playing.obstacle_belt_index],
+						0.0f,
+						0.0f
+					};
+
+				f32 collide_t;
+				if
+				(
+					collide_rect_rect
+					(
+						&collide_t,
+						(state->playing.ralph_velocity - obstacle_velocity) * SECONDS_PER_UPDATE,
+						state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f,
+						RALPH_HITBOX_DIMENSIONS,
+						state->playing.obstacle_position - state->playing.obstacle_hitbox / 2.0f,
+						state->playing.obstacle_hitbox
+					)
+				)
+				{
+					FOR_ELEMS(it, state->belt_offsets)
+					{
+						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE * collide_t;
 					}
 
 					FOR_ELEMS(it, state->dampen_belt_velocities)
 					{
-						*it = dampen(*it, state->belt_velocities[it_index], BELT_DAMPENING, SECONDS_PER_UPDATE);
+						*it = 0.0f;
 					}
 
+					FOR_ELEMS(it, state->belt_velocities)
+					{
+						*it = 0.0f;
+					}
+
+					state->ralph_exploding_sprite.frame_index = 0;
+
+					state->playing.ralph_position    += state->playing.ralph_velocity * SECONDS_PER_UPDATE * collide_t;
+					state->playing.obstacle_position += obstacle_velocity * SECONDS_PER_UPDATE * collide_t;
+
+					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
+					{
+						state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
+						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE * collide_t;
+					}
+
+					state->playing.dampen_calories_burned = state->playing.calories_burned;
+
+					state->type      = StateType::game_over;
+					state->game_over = {};
+				}
+				else
+				{
 					FOR_ELEMS(it, state->belt_offsets)
 					{
 						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
 					}
 
-					f32 old_x = state->playing.ralph_position.x;
-					state->playing.ralph_position.x               = lerp(0.0f, RALPH_X, ease_in(state->playing.intro_keytime));
-					state->ralph_running_sprite.seconds_per_frame = sigmoid(fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) + (state->playing.ralph_position.x - old_x) / SECONDS_PER_UPDATE, -0.75f);
-					loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
-				}
+					state->playing.ralph_position    += state->playing.ralph_velocity * SECONDS_PER_UPDATE;
+					state->playing.obstacle_position += obstacle_velocity * SECONDS_PER_UPDATE;
 
-				if (state->playing.intro_keytime == 1.0f)
-				{
 					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 					{
-						// @TODO@ Make holding down work nicely.
-						if (state->input.down && !state->prev_input.down && state->playing.ralph_belt_index > 0)
-						{
-							--state->playing.ralph_belt_index;
-							state->playing.calories_burned += CALORIES_PER_SWITCH;
-						}
-						if (state->input.up && !state->prev_input.up && state->playing.ralph_belt_index < 2)
-						{
-							++state->playing.ralph_belt_index;
-							state->playing.calories_burned += CALORIES_PER_SWITCH;
-						}
-
-						state->ralph_running_sprite.seconds_per_frame = sigmoid(fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]), -0.75f);
-
-						state->playing.ralph_velocity.y = 0.0f;
-						if (state->input.accept && !state->prev_input.accept)
-						{
-							state->playing.ralph_velocity.y += 5.0f;
-							state->playing.calories_burned  += CALORIES_PER_JUMP;
-						}
+						state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
+						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE;
+						loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
 					}
-					else
+
+					if (state->playing.obstacle_position.x + state->playing.obstacle_hitbox.x / 2.0f < 0.0f)
 					{
-						state->playing.ralph_velocity.y += GRAVITY * SECONDS_PER_UPDATE;
+						state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
+						state->playing.obstacle_hitbox     = { 0.6f, 0.5f, 0.2f };
+						state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + state->playing.obstacle_hitbox.x / 2.0f, state->playing.obstacle_hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
 					}
 
-					state->playing.ralph_velocity.z = ((-state->playing.ralph_belt_index - 0.5f) * BELT_HEIGHT - state->playing.ralph_position.z) * 10.0f;
-
-					vf3 obstacle_velocity =
-						{
-							state->dampen_belt_velocities[state->playing.obstacle_belt_index],
-							0.0f,
-							0.0f
-						};
-
-					f32 collide_t;
-					if
-					(
-						collide_rect_rect
-						(
-							&collide_t,
-							(state->playing.ralph_velocity - obstacle_velocity) * SECONDS_PER_UPDATE,
-							state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f,
-							RALPH_HITBOX_DIMENSIONS,
-							state->playing.obstacle_position - state->playing.obstacle_hitbox / 2.0f,
-							state->playing.obstacle_hitbox
-						)
-					)
-					{
-						FOR_ELEMS(it, state->belt_offsets)
-						{
-							*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE * collide_t;
-						}
-
-						FOR_ELEMS(it, state->dampen_belt_velocities)
-						{
-							*it = 0.0f;
-						}
-
-						FOR_ELEMS(it, state->belt_velocities)
-						{
-							*it = 0.0f;
-						}
-
-						state->ralph_exploding_sprite.frame_index = 0;
-
-						state->playing.ralph_position    += state->playing.ralph_velocity * SECONDS_PER_UPDATE * collide_t;
-						state->playing.obstacle_position += obstacle_velocity * SECONDS_PER_UPDATE * collide_t;
-
-						if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
-						{
-							state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
-							state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE * collide_t;
-						}
-
-						state->playing.dampen_calories_burned = state->playing.calories_burned;
-
-						state->type      = StateType::game_over;
-						state->game_over = {};
-					}
-					else
-					{
-						FOR_ELEMS(it, state->belt_offsets)
-						{
-							*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
-						}
-
-						state->playing.ralph_position    += state->playing.ralph_velocity * SECONDS_PER_UPDATE;
-						state->playing.obstacle_position += obstacle_velocity * SECONDS_PER_UPDATE;
-
-						if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
-						{
-							state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
-							state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE;
-							loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
-						}
-
-						if (state->playing.obstacle_position.x + state->playing.obstacle_hitbox.x / 2.0f < 0.0f)
-						{
-							state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
-							state->playing.obstacle_hitbox     = { 0.6f, 0.5f, 0.2f };
-							state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + state->playing.obstacle_hitbox.x / 2.0f, state->playing.obstacle_hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
-						}
-
-						state->playing.dampen_calories_burned = dampen(state->playing.dampen_calories_burned, state->playing.calories_burned, 4.0f, SECONDS_PER_UPDATE);
-					}
+					state->playing.dampen_calories_burned = dampen(state->playing.dampen_calories_burned, state->playing.calories_burned, 4.0f, SECONDS_PER_UPDATE);
 				}
 			} break;
 
