@@ -1,6 +1,8 @@
 #include "SushiRalph.h"
 #include "render.cpp"
 
+internal inline f32 square(f32 x) { return x * x; }
+
 internal inline f32 lerp(f32 a, f32 b, f32 t) { return a * (1.0f - t) + b * t; }
 internal inline vf3 lerp(vf3 a, vf3 b, f32 t) { return a * (1.0f - t) + b * t; }
 internal inline vf4 lerp(vf4 a, vf4 b, f32 t) { return a * (1.0f - t) + b * t; }
@@ -127,7 +129,8 @@ extern "C" PROTOTYPE_INITIALIZE(initialize)
 	State* state = reinterpret_cast<State*>(program->memory);
 
 	*state = {};
-	state->type = StateType::title_menu;
+	state->type                         = StateType::title_menu;
+	state->title_menu.resetting_keytime = 1.0f;
 }
 
 extern "C" PROTOTYPE_BOOT_UP(boot_up)
@@ -202,62 +205,90 @@ extern "C" PROTOTYPE_UPDATE(update)
 		{
 			case StateType::title_menu:
 			{
-				FOR_ELEMS(it, state->dampen_belt_velocities)
+				if (state->title_menu.resetting_keytime < 1.0f)
 				{
-					*it = dampen(*it, state->belt_velocities[it_index], 24.0f, SECONDS_PER_UPDATE);
-				}
+					state->title_menu.resetting_keytime += SECONDS_PER_UPDATE / 2.0f;
 
-				FOR_ELEMS(it, state->belt_offsets)
-				{
-					*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
-				}
-
-				// @TODO@ Make holding down work nicely.
-				if (state->input.left && !state->prev_input.left && state->title_menu.option_index > 0)
-				{
-					--state->title_menu.option_index;
-				}
-				if (state->input.right && !state->prev_input.right && state->title_menu.option_index < ARRAY_CAPACITY(TITLE_MENU_OPTIONS) - 1)
-				{
-					++state->title_menu.option_index;
-				}
-
-				state->belt_velocities[1] = (-state->belt_offsets[1] - state->title_menu.option_index * TITLE_MENU_OPTION_SPACING) * 16.0f;
-
-				if (state->input.accept && !state->prev_input.accept)
-				{
-					switch (state->title_menu.option_index)
+					if (state->title_menu.resetting_keytime >= 1.0f)
 					{
-						case 0:
+						state->title_menu.resetting_keytime = 1.0f;
+
+						FOR_ELEMS(it, state->belt_offsets)
 						{
-							FOR_ELEMS(it, state->belt_velocities)
+							*it = 0.0f;
+						}
+					}
+					else
+					{
+						FOR_ELEMS(it, state->belt_offsets)
+						{
+							*it = lerp(state->title_menu.initial_belt_offsets[it_index], 0.0f, square(ease_in(state->title_menu.resetting_keytime)));
+						}
+					}
+				}
+
+				if (state->title_menu.resetting_keytime == 1.0f)
+				{
+					FOR_ELEMS(it, state->dampen_belt_velocities)
+					{
+						*it = dampen(*it, state->belt_velocities[it_index], 24.0f, SECONDS_PER_UPDATE);
+					}
+
+					FOR_ELEMS(it, state->belt_offsets)
+					{
+						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
+					}
+
+					// @TODO@ Make holding down work nicely.
+					if (state->input.left && !state->prev_input.left && state->title_menu.option_index > 0)
+					{
+						--state->title_menu.option_index;
+					}
+					if (state->input.right && !state->prev_input.right && state->title_menu.option_index < ARRAY_CAPACITY(TITLE_MENU_OPTIONS) - 1)
+					{
+						++state->title_menu.option_index;
+					}
+
+					state->belt_velocities[1] = (-state->belt_offsets[1] - state->title_menu.option_index * TITLE_MENU_OPTION_SPACING) * 16.0f;
+
+					if (state->input.accept && !state->prev_input.accept)
+					{
+						switch (state->title_menu.option_index)
+						{
+							case 0:
 							{
-								*it = rng(&state->seed, -1.5f, -4.0f);
-								state->dampen_belt_velocities[it_index] = MINIMUM(0.0f, state->dampen_belt_velocities[it_index]);
-							}
+								FOR_ELEMS(it, state->belt_velocities)
+								{
+									*it = rng(&state->seed, -1.5f, -4.0f);
+								}
+								FOR_ELEMS(it, state->dampen_belt_velocities)
+								{
+									*it = 0.0f;
+								}
 
-							state->type                        = StateType::playing;
-							state->playing                     = {};
-							state->playing.ralph_belt_index    = 1;
-							state->playing.ralph_position      = { 0.0f, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
-							state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
-							state->playing.obstacle_hitbox     = { 0.6f, 0.5f, 0.2f };
-							state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + state->playing.obstacle_hitbox.x / 2.0f, state->playing.obstacle_hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
-						} break;
+								state->type                        = StateType::playing;
+								state->playing                     = {};
+								state->playing.ralph_belt_index    = 1;
+								state->playing.ralph_position      = { 0.0f, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
+								state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
+								state->playing.obstacle_hitbox     = { 0.6f, 0.5f, 0.2f };
+								state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + state->playing.obstacle_hitbox.x / 2.0f, state->playing.obstacle_hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
+							} break;
 
-						case 1:
-						{
-						} break;
+							case 1:
+							{
+							} break;
 
-						case 2:
-						{
-						} break;
+							case 2:
+							{
+							} break;
 
-						case 3:
-						{
-							program->is_running = false;
-							return;
-						} break;
+							case 3:
+							{
+								program->is_running = false;
+								return;
+							} break;
+						}
 					}
 				}
 			} break;
@@ -268,7 +299,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 				{
 					state->playing.intro_keytime += SECONDS_PER_UPDATE / 1.0f;
 
-					if (state->playing.intro_keytime > 1.0f)
+					if (state->playing.intro_keytime >= 1.0f)
 					{
 						state->playing.intro_keytime    = 1.0f;
 						state->playing.ralph_position.x = RALPH_X;
@@ -341,11 +372,6 @@ extern "C" PROTOTYPE_UPDATE(update)
 						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE * collide_t;
 					}
 
-					FOR_ELEMS(it, state->dampen_belt_velocities)
-					{
-						*it = 0.0f;
-					}
-
 					FOR_ELEMS(it, state->belt_velocities)
 					{
 						*it = 0.0f;
@@ -391,7 +417,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 						state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + state->playing.obstacle_hitbox.x / 2.0f, state->playing.obstacle_hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
 					}
 
-					state->playing.dampen_calories_burned = dampen(state->playing.dampen_calories_burned, state->playing.calories_burned, 4.0f, SECONDS_PER_UPDATE);
+					state->playing.dampen_calories_burned = dampen(state->playing.dampen_calories_burned, state->playing.calories_burned, 16.0f, SECONDS_PER_UPDATE);
 				}
 			} break;
 
@@ -401,9 +427,28 @@ extern "C" PROTOTYPE_UPDATE(update)
 				{
 					state->type       = StateType::title_menu;
 					state->title_menu = {};
+
+					FOR_ELEMS(it, state->title_menu.initial_belt_offsets)
+					{
+						*it = TITLE_MENU_OPTIONS_WIDTH + fmodf(state->belt_offsets[it_index], BELT_SPACING);
+						state->belt_offsets[it_index] = *it;
+					}
 				}
 				else
 				{
+					FOR_ELEMS(it, state->dampen_belt_velocities)
+					{
+						*it = dampen(*it, state->belt_velocities[it_index], 4.0f, SECONDS_PER_UPDATE);
+					}
+
+					FOR_ELEMS(it, state->belt_offsets)
+					{
+						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
+					}
+
+					state->playing.ralph_position.x    += state->dampen_belt_velocities[state->playing.ralph_belt_index] * SECONDS_PER_UPDATE;
+					state->playing.obstacle_position.x += state->dampen_belt_velocities[state->playing.obstacle_belt_index] * SECONDS_PER_UPDATE;
+
 					age_sprite(&state->ralph_exploding_sprite, SECONDS_PER_UPDATE);
 				}
 			} break;
@@ -434,29 +479,32 @@ extern "C" PROTOTYPE_UPDATE(update)
 		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER        }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER        });
 		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER * 2.0f }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER * 2.0f });
 
-		draw_text
-		(
-			program->renderer,
-			state->font,
-			{ WINDOW_DIMENSIONS.x / 2.0f + state->belt_offsets[2] * PIXELS_PER_METER, 2.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f },
-			FC_ALIGN_CENTER,
-			1.0f,
-			{ 1.0f, 1.0f, 1.0f, 1.0f },
-			"Sushi Ralph"
-		);
-
-		FOR_ELEMS(it, TITLE_MENU_OPTIONS)
+		if (state->type == StateType::title_menu || state->type == StateType::playing)
 		{
 			draw_text
 			(
 				program->renderer,
 				state->font,
-				{ WINDOW_DIMENSIONS.x / 2.0f + (it_index * TITLE_MENU_OPTION_SPACING + state->belt_offsets[1]) * PIXELS_PER_METER, 1.4f * BELT_HEIGHT * PIXELS_PER_METER },
+				{ WINDOW_DIMENSIONS.x / 2.0f + state->belt_offsets[2] * PIXELS_PER_METER, 2.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f },
 				FC_ALIGN_CENTER,
-				0.7f,
+				1.0f,
 				{ 1.0f, 1.0f, 1.0f, 1.0f },
-				"%s", *it
+				"Sushi Ralph"
 			);
+
+			FOR_ELEMS(it, TITLE_MENU_OPTIONS)
+			{
+				draw_text
+				(
+					program->renderer,
+					state->font,
+					{ WINDOW_DIMENSIONS.x / 2.0f + (it_index * TITLE_MENU_OPTION_SPACING + state->belt_offsets[1]) * PIXELS_PER_METER, 1.4f * BELT_HEIGHT * PIXELS_PER_METER },
+					FC_ALIGN_CENTER,
+					0.7f,
+					{ 1.0f, 1.0f, 1.0f, 1.0f },
+					"%s", *it
+				);
+			}
 		}
 
 		if (state->type == StateType::playing)

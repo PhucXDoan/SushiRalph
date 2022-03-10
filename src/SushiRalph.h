@@ -5,8 +5,8 @@ global constexpr f32 SECONDS_PER_UPDATE            = 1.0f / 30.0f;
 global constexpr f32 PIXELS_PER_METER              = 128.0f;
 global constexpr f32 GRAVITY                       = -9.81f;
 global constexpr f32 CALORIES_PER_METER_PER_SECOND = 0.5f;
-global constexpr f32 CALORIES_PER_SWITCH           = 4.0f;
-global constexpr f32 CALORIES_PER_JUMP             = 8.0f;
+global constexpr f32 CALORIES_PER_SWITCH           = 1.0f;
+global constexpr f32 CALORIES_PER_JUMP             = 4.0f;
 
 global constexpr f32 BELT_SPACING              = 0.5f;
 global constexpr f32 BELT_HEIGHT               = 0.75f;
@@ -23,6 +23,7 @@ global constexpr strlit TITLE_MENU_OPTIONS[]      =
 		"Credits",
 		"Exit"
 	};
+global constexpr f32    TITLE_MENU_OPTIONS_WIDTH = WINDOW_DIMENSIONS.x / PIXELS_PER_METER * 0.75f;
 
 // @TODO@ Use an actual RNG lol.
 // @STICKY@ Is in interval [0, 65536).
@@ -105,6 +106,9 @@ struct State
 
 	struct
 	{
+		f32 resetting_keytime;
+		f32 initial_belt_offsets[3];
+
 		i32 option_index;
 	} title_menu;
 
