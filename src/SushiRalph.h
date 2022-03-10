@@ -25,8 +25,6 @@ global constexpr strlit TITLE_MENU_OPTIONS[]      =
 		"Exit"
 	};
 
-global constexpr f32 TITLE_MENU_TO_PLAYING_DURATION = 1.0f;
-
 // @TODO@ Use an actual RNG lol.
 // @STICKY@ Is in interval [0, 65536).
 global constexpr u16 RAND_TABLE[] =
@@ -109,12 +107,12 @@ struct State
 	struct
 	{
 		i32 option_index;
-
-		f32 playing_keytime = -1.0f;
 	} title_menu;
 
 	struct
 	{
+		f32 intro_keytime;
+
 		i32 ralph_belt_index;
 		vf3 ralph_position;
 		vf3 ralph_velocity;
