@@ -68,3 +68,31 @@ internal void draw_crosshair(SDL_Renderer* renderer, vf2 position, f32 length)
 	draw_line(renderer, position - vf2 { length,   0.0f }, position + vf2 { length,  0.0f });
 	draw_line(renderer, position - vf2 {   0.0f, length }, position + vf2 {  0.0f, length });
 }
+
+internal void draw_hitbox(SDL_Renderer* renderer, vf3 center, vf3 hitbox)
+{
+	#if 0
+	vf2 bottom_left = (project(center - vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f })) * PIXELS_PER_METER;
+	vf2 top_right   = (project(center + vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f })) * PIXELS_PER_METER;
+
+	SDL_Point points[] =
+		{
+			{ static_cast<i32>(bottom_left.x), static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - bottom_left.y) },
+			{ static_cast<i32>(top_right.x  ), static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - bottom_left.y) },
+			{ static_cast<i32>(top_right.x  ), static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - top_right.y  ) },
+			{ static_cast<i32>(bottom_left.x), static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - top_right.y  ) },
+			{ static_cast<i32>(bottom_left.x), static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f - bottom_left.y) }
+		};
+
+	SDL_RenderDrawLines(renderer, points, ARRAY_CAPACITY(points));
+	#else
+	constexpr f32 THICKNESS = 5.0f;
+	vf2 bottom_left = (project(center - vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f })) * PIXELS_PER_METER;
+	vf2 dimensions  = (project(center + vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f })) * PIXELS_PER_METER - bottom_left;
+
+	draw_rect(renderer, bottom_left, { THICKNESS, dimensions.y });
+	draw_rect(renderer, bottom_left + vf2 { dimensions.x - THICKNESS, 0.0f }, { THICKNESS, dimensions.y });
+	draw_rect(renderer, bottom_left, { dimensions.x, THICKNESS });
+	draw_rect(renderer, bottom_left + vf2 { 0.0f, dimensions.y - THICKNESS }, { dimensions.x, THICKNESS });
+	#endif
+}

@@ -9,8 +9,7 @@ global constexpr f32 BELT_SPACING              = 0.25f;
 global constexpr f32 BELT_HEIGHT               = 0.75f;
 global constexpr f32 BELT_LIGHTNESS[]          = { 0.6f, 0.575f, 0.625f };
 
-global constexpr vf2 RALPH_HITBOX_DIMENSIONS   = { 0.46f, 0.3f };
-global constexpr f32 RALPH_BELT_OFFSET_Z       = 0.0f;
+global constexpr vf3 RALPH_HITBOX_DIMENSIONS   = { 0.6f, 0.6f, 0.075f };
 
 global constexpr f32    TITLE_MENU_OPTION_SPACING = 2.0f;
 global constexpr strlit TITLE_MENU_OPTIONS[]      =
@@ -110,8 +109,8 @@ struct State
 		vf3 ralph_position;
 		vf3 ralph_velocity;
 		i32 obstacle_belt_index;
-		vf3 obstacle_position;
 		vf3 obstacle_hitbox;
+		vf3 obstacle_position;
 		f32 distance;
 	} playing;
 
