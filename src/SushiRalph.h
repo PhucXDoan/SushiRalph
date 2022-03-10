@@ -1,11 +1,14 @@
 #pragma once
 #include "platform.h"
 
-global constexpr f32 SECONDS_PER_UPDATE        = 1.0f / 30.0f;
-global constexpr f32 PIXELS_PER_METER          = 128.0f;
-global constexpr f32 GRAVITY                   = -9.81f;
+global constexpr f32 SECONDS_PER_UPDATE            = 1.0f / 30.0f;
+global constexpr f32 PIXELS_PER_METER              = 128.0f;
+global constexpr f32 GRAVITY                       = -9.81f;
+global constexpr f32 CALORIES_PER_METER_PER_SECOND = 0.5f;
+global constexpr f32 CALORIES_PER_SWITCH           = 4.0f;
+global constexpr f32 CALORIES_PER_JUMP             = 8.0f;
 
-global constexpr f32 BELT_SPACING              = 0.25f;
+global constexpr f32 BELT_SPACING              = 0.5f;
 global constexpr f32 BELT_HEIGHT               = 0.75f;
 global constexpr f32 BELT_LIGHTNESS[]          = { 0.6f, 0.575f, 0.625f };
 
@@ -111,7 +114,8 @@ struct State
 		i32 obstacle_belt_index;
 		vf3 obstacle_hitbox;
 		vf3 obstacle_position;
-		f32 distance;
+		f32 calories_burned;
+		f32 dampen_calories_burned;
 	} playing;
 
 	struct

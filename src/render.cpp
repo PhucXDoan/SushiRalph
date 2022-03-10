@@ -11,7 +11,7 @@ internal void set_color(SDL_Renderer* renderer, vf4 rgba)
 
 internal vf2 project(vf3 p)
 {
-	return { p.x, -p.z + p.y * 0.5f };
+	return vf2 { p.x, -p.z + p.y * 0.5f } * PIXELS_PER_METER;
 }
 
 internal inline void draw_line(SDL_Renderer* renderer, vf2 start, vf2 end)
@@ -63,17 +63,11 @@ internal void draw_sprite(SDL_Renderer* renderer, Sprite* sprite, vf2 bottom_lef
 	}
 }
 
-internal void draw_crosshair(SDL_Renderer* renderer, vf2 position, f32 length)
-{
-	draw_line(renderer, position - vf2 { length,   0.0f }, position + vf2 { length,  0.0f });
-	draw_line(renderer, position - vf2 {   0.0f, length }, position + vf2 {  0.0f, length });
-}
-
 internal void draw_hitbox(SDL_Renderer* renderer, vf3 center, vf3 hitbox)
 {
 	#if 0
-	vf2 bottom_left = (project(center - vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f })) * PIXELS_PER_METER;
-	vf2 top_right   = (project(center + vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f })) * PIXELS_PER_METER;
+	vf2 bottom_left = project(center - vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f });
+	vf2 top_right   = project(center + vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f });
 
 	SDL_Point points[] =
 		{
@@ -87,12 +81,17 @@ internal void draw_hitbox(SDL_Renderer* renderer, vf3 center, vf3 hitbox)
 	SDL_RenderDrawLines(renderer, points, ARRAY_CAPACITY(points));
 	#else
 	constexpr f32 THICKNESS = 5.0f;
-	vf2 bottom_left = (project(center - vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f })) * PIXELS_PER_METER;
-	vf2 dimensions  = (project(center + vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f })) * PIXELS_PER_METER - bottom_left;
+	vf2 bottom_left = project(center - vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f });
+	vf2 dimensions  = project(center + vf3 { hitbox.x / 2.0f, hitbox.y / 2.0f, 0.0f }) - bottom_left;
 
 	draw_rect(renderer, bottom_left, { THICKNESS, dimensions.y });
 	draw_rect(renderer, bottom_left + vf2 { dimensions.x - THICKNESS, 0.0f }, { THICKNESS, dimensions.y });
 	draw_rect(renderer, bottom_left, { dimensions.x, THICKNESS });
 	draw_rect(renderer, bottom_left + vf2 { 0.0f, dimensions.y - THICKNESS }, { dimensions.x, THICKNESS });
+
+	constexpr f32 LENGTH = 25.0f;
+	vf2 projected_center = project(center);
+	draw_line(renderer, projected_center - vf2 { LENGTH,   0.0f }, projected_center + vf2 { LENGTH,  0.0f });
+	draw_line(renderer, projected_center - vf2 {   0.0f, LENGTH }, projected_center + vf2 {  0.0f, LENGTH });
 	#endif
 }
