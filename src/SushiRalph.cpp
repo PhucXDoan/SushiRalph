@@ -235,14 +235,6 @@ extern "C" PROTOTYPE_UPDATE(update)
 		// Update.
 		//
 
-		persist bool32 PAUSED = true;
-
-		if ((state->input.left && !state->prev_input.left && state->input.right && !state->prev_input.right))
-		{
-			PAUSED = !PAUSED;
-		}
-
-		if (!PAUSED)
 		switch (state->type)
 		{
 			case StateType::title_menu:
@@ -312,9 +304,13 @@ extern "C" PROTOTYPE_UPDATE(update)
 								state->playing                       = {};
 								state->playing.ralph_belt_index      = 1;
 								state->playing.ralph_position        = { 0.0f, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
-								state->playing.obstacle_sprite_index = rng(&state->seed, 0, ARRAY_CAPACITY(state->obstacle_sprites));
-								state->playing.obstacle_belt_index   = rng(&state->seed, 0, 3);
-								state->playing.obstacle_position     = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + OBSTACLE_ASSETS[state->playing.obstacle_sprite_index].hitbox.x / 2.0f, OBSTACLE_ASSETS[state->playing.obstacle_sprite_index].hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
+
+								FOR_ELEMS(it, state->playing.obstacles)
+								{
+									it->sprite_index = rng(&state->seed, 0, ARRAY_CAPACITY(state->obstacle_sprites));
+									it->belt_index   = rng(&state->seed, 0, 3);
+									it->position     = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + OBSTACLE_ASSETS[it->sprite_index].hitbox.x / 2.0f, OBSTACLE_ASSETS[it->sprite_index].hitbox.y / 2.0f, -(it->belt_index + 0.5f) * BELT_HEIGHT };
+								}
 							} break;
 
 							case 1:
@@ -388,26 +384,32 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 				state->playing.ralph_velocity.z = ((-state->playing.ralph_belt_index - 0.5f) * BELT_HEIGHT - state->playing.ralph_position.z) * 10.0f;
 
-				vf3 obstacle_velocity =
-					{
-						state->dampen_belt_velocities[state->playing.obstacle_belt_index],
-						0.0f,
-						0.0f
-					};
+				f32    collide_t = INFINITY;
+				bool32 collided = false;
 
-				f32 collide_t;
-				if
-				(
-					collide_rect_rect
+				FOR_ELEMS(it, state->playing.obstacles)
+				{
+					f32 it_collide_t;
+					if
 					(
-						&collide_t,
-						(state->playing.ralph_velocity - obstacle_velocity) * SECONDS_PER_UPDATE,
-						state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f,
-						RALPH_HITBOX_DIMENSIONS,
-						state->playing.obstacle_position - OBSTACLE_ASSETS[state->playing.obstacle_sprite_index].hitbox / 2.0f,
-						OBSTACLE_ASSETS[state->playing.obstacle_sprite_index].hitbox
+						collide_rect_rect
+						(
+							&it_collide_t,
+							(state->playing.ralph_velocity - vf3 { state->dampen_belt_velocities[it->belt_index], 0.0f, 0.0f }) * SECONDS_PER_UPDATE,
+							state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f,
+							RALPH_HITBOX_DIMENSIONS,
+							it->position - OBSTACLE_ASSETS[it->sprite_index].hitbox / 2.0f,
+							OBSTACLE_ASSETS[it->sprite_index].hitbox
+						)
+						&& it_collide_t < collide_t
 					)
-				)
+					{
+						collide_t = it_collide_t;
+						collided  = true;
+					}
+				}
+
+				if (collided)
 				{
 					FOR_ELEMS(it, state->belt_offsets)
 					{
@@ -424,7 +426,11 @@ extern "C" PROTOTYPE_UPDATE(update)
 					state->ralph_exploding_sprite.frame_index = 0;
 
 					state->playing.ralph_position    += state->playing.ralph_velocity * SECONDS_PER_UPDATE * collide_t;
-					state->playing.obstacle_position += obstacle_velocity * SECONDS_PER_UPDATE * collide_t;
+
+					FOR_ELEMS(it, state->playing.obstacles)
+					{
+						it->position += vf3 { state->dampen_belt_velocities[it->belt_index], 0.0f, 0.0f } * SECONDS_PER_UPDATE * collide_t;
+					}
 
 					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 					{
@@ -445,20 +451,25 @@ extern "C" PROTOTYPE_UPDATE(update)
 					}
 
 					state->playing.ralph_position    += state->playing.ralph_velocity * SECONDS_PER_UPDATE;
-					state->playing.obstacle_position += obstacle_velocity * SECONDS_PER_UPDATE;
+
+					FOR_ELEMS(it, state->playing.obstacles)
+					{
+						it->position += vf3 { state->dampen_belt_velocities[it->belt_index], 0.0f, 0.0f } * SECONDS_PER_UPDATE;
+
+						if (it->position.x + OBSTACLE_ASSETS[it->sprite_index].hitbox.x / 2.0f < 0.0f)
+						{
+							it->sprite_index = rng(&state->seed, 0, ARRAY_CAPACITY(state->obstacle_sprites));
+							it->belt_index   = rng(&state->seed, 0, 3);
+							it->position     = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + OBSTACLE_ASSETS[it->sprite_index].hitbox.x / 2.0f, OBSTACLE_ASSETS[it->sprite_index].hitbox.y / 2.0f, -(it->belt_index + 0.5f) * BELT_HEIGHT };
+						}
+					}
+
 
 					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 					{
 						state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
 						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE;
 						loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
-					}
-
-					if (state->playing.obstacle_position.x + OBSTACLE_ASSETS[state->playing.obstacle_sprite_index].hitbox.x / 2.0f < 0.0f)
-					{
-						state->playing.obstacle_sprite_index = rng(&state->seed, 0, ARRAY_CAPACITY(state->obstacle_sprites));
-						state->playing.obstacle_belt_index   = rng(&state->seed, 0, 3);
-						state->playing.obstacle_position     = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + OBSTACLE_ASSETS[state->playing.obstacle_sprite_index].hitbox.x / 2.0f, OBSTACLE_ASSETS[state->playing.obstacle_sprite_index].hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
 					}
 
 					state->playing.dampen_calories_burned = dampen(state->playing.dampen_calories_burned, state->playing.calories_burned, 16.0f, SECONDS_PER_UPDATE);
@@ -491,7 +502,11 @@ extern "C" PROTOTYPE_UPDATE(update)
 					}
 
 					state->playing.ralph_position.x    += state->dampen_belt_velocities[state->playing.ralph_belt_index] * SECONDS_PER_UPDATE;
-					state->playing.obstacle_position.x += state->dampen_belt_velocities[state->playing.obstacle_belt_index] * SECONDS_PER_UPDATE;
+
+					FOR_ELEMS(it, state->playing.obstacles)
+					{
+						it->position.x += state->dampen_belt_velocities[it->belt_index] * SECONDS_PER_UPDATE;
+					}
 
 					age_sprite(&state->ralph_exploding_sprite, SECONDS_PER_UPDATE);
 				}
@@ -554,19 +569,32 @@ extern "C" PROTOTYPE_UPDATE(update)
 		if (state->type == StateType::playing)
 		{
 			draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
-			draw_sprite(program->renderer, &state->obstacle_sprites[state->playing.obstacle_sprite_index], project(state->playing.obstacle_position));
+
+			FOR_ELEMS(it, state->playing.obstacles)
+			{
+				draw_sprite(program->renderer, &state->obstacle_sprites[it->sprite_index], project(it->position));
+			}
+
 			draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f, (3.5f * BELT_HEIGHT) * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.dampen_calories_burned);
 
 			set_color(program->renderer, { 0.0f, 1.0f, 0.0f, 1.0f });
 			draw_hitbox(program->renderer, state->playing.ralph_position, RALPH_HITBOX_DIMENSIONS);
 
 			set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-			draw_hitbox(program->renderer, state->playing.obstacle_position, OBSTACLE_ASSETS[state->playing.obstacle_sprite_index].hitbox);
+			FOR_ELEMS(it, state->playing.obstacles)
+			{
+				draw_hitbox(program->renderer, it->position, OBSTACLE_ASSETS[it->sprite_index].hitbox);
+			}
 		}
 		else if (state->type == StateType::game_over)
 		{
 			draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
-			draw_sprite(program->renderer, &state->obstacle_sprites[state->playing.obstacle_sprite_index], project(state->playing.obstacle_position));
+
+			FOR_ELEMS(it, state->playing.obstacles)
+			{
+				draw_sprite(program->renderer, &state->obstacle_sprites[it->sprite_index], project(it->position));
+			}
+
 			draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "GAME OVER");
 			draw_text
 			(
@@ -581,7 +609,10 @@ extern "C" PROTOTYPE_UPDATE(update)
 			draw_hitbox(program->renderer, state->playing.ralph_position, RALPH_HITBOX_DIMENSIONS);
 
 			set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-			draw_hitbox(program->renderer, state->playing.obstacle_position, OBSTACLE_ASSETS[state->playing.obstacle_sprite_index].hitbox);
+			FOR_ELEMS(it, state->playing.obstacles)
+			{
+				draw_hitbox(program->renderer, it->position, OBSTACLE_ASSETS[it->sprite_index].hitbox);
+			}
 		}
 
 

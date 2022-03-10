@@ -13,7 +13,7 @@ global constexpr strlit        SAVE_DATA_FILE_PATH = "W:/data/SushiRalph.save";
 global constexpr ObstacleAsset OBSTACLE_ASSETS[]   =
 	{
 		{ "W:/data/sushi_0.bmp", 0.15f, { 0.5f, 0.6f }, { 0.69f, 0.5f, 0.2f } },
-		{ "W:/data/sushi_1.bmp", 0.15f, { 0.5f, 0.6f }, { 0.69f, 0.5f, 0.2f } },
+		{ "W:/data/sushi_1.bmp", 0.15f, { 0.5f, 0.6f }, { 0.50f, 0.5f, 0.2f } },
 		{ "W:/data/sushi_2.bmp", 0.10f, { 0.5f, 0.7f }, { 0.49f, 0.5f, 0.2f } },
 		{ "W:/data/sushi_3.bmp", 0.15f, { 0.5f, 0.5f }, { 1.25f, 1.0f, 0.2f } }
 	};
@@ -93,6 +93,13 @@ struct Sprite
 	f32          seconds_accumulated;
 };
 
+struct Obstacle
+{
+	i32 sprite_index;
+	i32 belt_index;
+	vf3 position;
+};
+
 struct Input
 {
 	bool8 left;
@@ -132,16 +139,14 @@ struct State
 
 	struct
 	{
-		f32 intro_keytime;
+		f32       intro_keytime;
 
-		i32 ralph_belt_index;
-		vf3 ralph_position;
-		vf3 ralph_velocity;
-		i32 obstacle_sprite_index;
-		i32 obstacle_belt_index;
-		vf3 obstacle_position;
-		f32 calories_burned;
-		f32 dampen_calories_burned;
+		i32      ralph_belt_index;
+		vf3      ralph_position;
+		vf3      ralph_velocity;
+		Obstacle obstacles[4];
+		f32      calories_burned;
+		f32      dampen_calories_burned;
 	} playing;
 
 	struct
