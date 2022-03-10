@@ -1,6 +1,8 @@
 #pragma once
 #include "platform.h"
 
+global constexpr strlit SAVE_DATA_FILE_PATH       = "W:/data/SushiRalph.save";
+
 global constexpr f32 SECONDS_PER_UPDATE            = 1.0f / 30.0f;
 global constexpr f32 PIXELS_PER_METER              = 128.0f;
 global constexpr f32 GRAVITY                       = -9.81f;
@@ -103,6 +105,7 @@ struct State
 	f32       belt_offsets[3];
 	f32       belt_velocities[3];
 	f32       dampen_belt_velocities[3];
+	f32       highest_calories_burned;
 
 	struct
 	{

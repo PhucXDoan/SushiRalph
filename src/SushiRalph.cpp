@@ -143,11 +143,37 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	state->ralph_running_sprite   = load_sprite(program->renderer, "W:/data/ralph_running.bmp", 0.6f, { 0.5f, 0.4f }, 4, 0.25f);
 	state->ralph_exploding_sprite = load_sprite(program->renderer, "W:/data/ralph_exploding.bmp", 0.6f, { 0.5f, 0.4f }, 4, 0.15f);
 	state->sushi_sprite           = load_sprite(program->renderer, "W:/data/sushi.bmp", 0.15f, { 0.5f, 0.6f });
+
+	FILE* save_data;
+	errno_t save_data_error = fopen_s(&save_data, SAVE_DATA_FILE_PATH, "rb");
+
+	if (save_data_error == 0)
+	{
+		fread(&state->highest_calories_burned, 1, sizeof(state->highest_calories_burned), save_data);
+		fclose(save_data);
+	}
+	else
+	{
+		DEBUG_printf("No save file found at '%s'.\n", SAVE_DATA_FILE_PATH);
+	}
 }
 
 extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
 {
 	State* state = reinterpret_cast<State*>(program->memory);
+
+	FILE* save_data;
+	errno_t save_data_error = fopen_s(&save_data, SAVE_DATA_FILE_PATH, "wb");
+
+	if (save_data_error == 0)
+	{
+		fwrite(&state->highest_calories_burned, 1, sizeof(state->highest_calories_burned), save_data);
+		fclose(save_data);
+	}
+	else
+	{
+		DEBUG_printf("Could not save at '%s'.\n", SAVE_DATA_FILE_PATH);
+	}
 
 	FC_FreeFont(state->font);
 	SDL_DestroyTexture(state->ralph_running_sprite.texture);
@@ -377,6 +403,8 @@ extern "C" PROTOTYPE_UPDATE(update)
 						*it = 0.0f;
 					}
 
+					state->highest_calories_burned = MAXIMUM(state->highest_calories_burned, state->playing.calories_burned);
+
 					state->ralph_exploding_sprite.frame_index = 0;
 
 					state->playing.ralph_position    += state->playing.ralph_velocity * SECONDS_PER_UPDATE * collide_t;
@@ -524,7 +552,14 @@ extern "C" PROTOTYPE_UPDATE(update)
 			draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
 			draw_sprite(program->renderer, &state->sushi_sprite, project(state->playing.obstacle_position));
 			draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "GAME OVER");
-			draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.calories_burned);
+			draw_text
+			(
+				program->renderer,
+				state->font,
+				WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f },
+				FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f },
+				"Calories burned : %f\nHighest calories burned : %f", state->playing.calories_burned, state->highest_calories_burned
+			);
 
 			set_color(program->renderer, { 0.0f, 1.0f, 0.0f, 1.0f });
 			draw_hitbox(program->renderer, state->playing.ralph_position, RALPH_HITBOX_DIMENSIONS);
