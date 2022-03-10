@@ -1,7 +1,22 @@
 #pragma once
 #include "platform.h"
 
-global constexpr strlit SAVE_DATA_FILE_PATH       = "W:/data/SushiRalph.save";
+struct ObstacleAsset
+{
+	strlit file_path;
+	f32    scalar;
+	vf2    origin;
+	vf3    hitbox;
+};
+
+global constexpr strlit        SAVE_DATA_FILE_PATH = "W:/data/SushiRalph.save";
+global constexpr ObstacleAsset OBSTACLE_ASSETS[]   =
+	{
+		{ "W:/data/sushi_0.bmp", 0.15f, { 0.5f, 0.6f }, { 0.69f, 0.5f, 0.2f } },
+		{ "W:/data/sushi_1.bmp", 0.15f, { 0.5f, 0.6f }, { 0.69f, 0.5f, 0.2f } },
+		{ "W:/data/sushi_2.bmp", 0.10f, { 0.5f, 0.7f }, { 0.49f, 0.5f, 0.2f } },
+		{ "W:/data/sushi_3.bmp", 0.15f, { 0.5f, 0.5f }, { 1.25f, 1.0f, 0.2f } }
+	};
 
 global constexpr f32 SECONDS_PER_UPDATE            = 1.0f / 30.0f;
 global constexpr f32 PIXELS_PER_METER              = 128.0f;
@@ -71,7 +86,7 @@ struct Sprite
 	i32          width_pixels;
 	i32          height_pixels;
 	f32          scalar;
-	vf2          offset;
+	vf2          origin;
 	i32          frame_index;
 	i32          frame_count;
 	f32          seconds_per_frame;
@@ -122,8 +137,8 @@ struct State
 		i32 ralph_belt_index;
 		vf3 ralph_position;
 		vf3 ralph_velocity;
+		i32 obstacle_sprite_index;
 		i32 obstacle_belt_index;
-		vf3 obstacle_hitbox;
 		vf3 obstacle_position;
 		f32 calories_burned;
 		f32 dampen_calories_burned;
@@ -136,5 +151,5 @@ struct State
 	FC_Font* font;
 	Sprite   ralph_running_sprite;
 	Sprite   ralph_exploding_sprite;
-	Sprite   sushi_sprite;
+	Sprite   obstacle_sprites[ARRAY_CAPACITY(OBSTACLE_ASSETS)];
 };
