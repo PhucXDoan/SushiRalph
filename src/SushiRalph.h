@@ -11,8 +11,10 @@ global constexpr f32 CALORIES_PER_JUMP             = 8.0f;
 global constexpr f32 BELT_SPACING              = 0.5f;
 global constexpr f32 BELT_HEIGHT               = 0.75f;
 global constexpr f32 BELT_LIGHTNESS[]          = { 0.6f, 0.575f, 0.625f };
+global constexpr f32 BELT_DAMPENING            = 16.0f;
 
 global constexpr vf3 RALPH_HITBOX_DIMENSIONS   = { 0.6f, 0.6f, 0.075f };
+global constexpr f32 RALPH_X                   = 4.0f;
 
 global constexpr f32    TITLE_MENU_OPTION_SPACING = 2.0f;
 global constexpr strlit TITLE_MENU_OPTIONS[]      =
@@ -22,6 +24,8 @@ global constexpr strlit TITLE_MENU_OPTIONS[]      =
 		"Credits",
 		"Exit"
 	};
+
+global constexpr f32 TITLE_MENU_TO_PLAYING_DURATION = 1.0f;
 
 // @TODO@ Use an actual RNG lol.
 // @STICKY@ Is in interval [0, 65536).
@@ -100,10 +104,13 @@ struct State
 	StateType type;
 	f32       belt_offsets[3];
 	f32       belt_velocities[3];
+	f32       dampen_belt_velocities[3];
 
 	struct
 	{
 		i32 option_index;
+
+		f32 playing_keytime = -1.0f;
 	} title_menu;
 
 	struct
@@ -123,7 +130,7 @@ struct State
 	} game_over;
 
 	FC_Font* font;
-	Sprite    ralph_running_sprite;
-	Sprite    ralph_exploding_sprite;
-	Sprite    sushi_sprite;
+	Sprite   ralph_running_sprite;
+	Sprite   ralph_exploding_sprite;
+	Sprite   sushi_sprite;
 };

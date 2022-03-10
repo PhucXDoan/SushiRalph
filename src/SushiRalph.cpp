@@ -14,6 +14,11 @@ internal inline f32 sigmoid(f32 x, f32 k)
 	return 1.0f / (1.0f + expf(-x * k));
 }
 
+internal inline f32 ease_in(f32 x)
+{
+	return sinf(TAU / 4.0f * x);
+}
+
 internal inline f32 rng(u32* seed)
 {
 	return RAND_TABLE[++*seed % ARRAY_CAPACITY(RAND_TABLE)] / 65536.0f;
@@ -102,7 +107,7 @@ internal void age_sprite(Sprite* sprite, f32 dt)
 	sprite->seconds_accumulated += dt;
 	if (sprite->seconds_accumulated >= sprite->seconds_per_frame)
 	{
-		sprite->seconds_accumulated -= sprite->seconds_per_frame;
+		sprite->seconds_accumulated = 0;
 		sprite->frame_index = MINIMUM(sprite->frame_index + 1, sprite->frame_count);
 	}
 }
@@ -112,7 +117,7 @@ internal void loop_sprite(Sprite* sprite, f32 dt)
 	sprite->seconds_accumulated += dt;
 	if (sprite->seconds_accumulated >= sprite->seconds_per_frame)
 	{
-		sprite->seconds_accumulated -= sprite->seconds_per_frame;
+		sprite->seconds_accumulated = 0;
 		sprite->frame_index = (sprite->frame_index + 1) % sprite->frame_count;
 	}
 }
@@ -197,62 +202,94 @@ extern "C" PROTOTYPE_UPDATE(update)
 		{
 			case StateType::title_menu:
 			{
-				// @TODO@ Make holding down work nicely.
-				if (state->input.left && !state->prev_input.left && state->title_menu.option_index > 0)
+				if (state->title_menu.playing_keytime != -1.0f)
 				{
-					--state->title_menu.option_index;
+					state->title_menu.playing_keytime += SECONDS_PER_UPDATE / TITLE_MENU_TO_PLAYING_DURATION;
+
+					f32 old_x = state->playing.ralph_position.x;
+					state->playing.ralph_position.x = lerp(0.0f, RALPH_X, ease_in(state->title_menu.playing_keytime));
+
+					state->ralph_running_sprite.seconds_per_frame = sigmoid(fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) + (state->playing.ralph_position.x - old_x) / SECONDS_PER_UPDATE, -0.75f);
+					loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
+
+					if (state->title_menu.playing_keytime >= 1.0f)
+					{
+						state->title_menu.playing_keytime = 1.0f;
+
+						state->type                        = StateType::playing;
+						state->playing                     = {};
+						state->playing.ralph_belt_index    = 1;
+						state->playing.ralph_position      = { RALPH_X, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
+						state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
+						state->playing.obstacle_hitbox     = { 0.6f, 0.5f, 0.2f };
+						state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + state->playing.obstacle_hitbox.x / 2.0f, state->playing.obstacle_hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
+					}
 				}
-				if (state->input.right && !state->prev_input.right && state->title_menu.option_index < ARRAY_CAPACITY(TITLE_MENU_OPTIONS) - 1)
+				else
 				{
-					++state->title_menu.option_index;
+					// @TODO@ Make holding down work nicely.
+					if (state->input.left && !state->prev_input.left && state->title_menu.option_index > 0)
+					{
+						--state->title_menu.option_index;
+					}
+					if (state->input.right && !state->prev_input.right && state->title_menu.option_index < ARRAY_CAPACITY(TITLE_MENU_OPTIONS) - 1)
+					{
+						++state->title_menu.option_index;
+					}
+
+					state->belt_velocities[1] = (-state->belt_offsets[1] - state->title_menu.option_index * TITLE_MENU_OPTION_SPACING) * 16.0f;
+
+					if (state->input.accept && !state->prev_input.accept)
+					{
+						switch (state->title_menu.option_index)
+						{
+							case 0:
+							{
+								state->title_menu.playing_keytime = 0.0f;
+
+								FOR_ELEMS(it, state->belt_velocities)
+								{
+									*it = rng(&state->seed, -1.5f, -4.0f);
+								}
+
+								state->playing.ralph_position = { 0.0f, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
+							} break;
+
+							case 1:
+							{
+							} break;
+
+							case 2:
+							{
+							} break;
+
+							case 3:
+							{
+								program->is_running = false;
+								return;
+							} break;
+						}
+					}
 				}
 
-				state->belt_velocities[1] = dampen(state->belt_velocities[1], (-state->belt_offsets[1] - state->title_menu.option_index * TITLE_MENU_OPTION_SPACING) * 10.0f, 16.0f, SECONDS_PER_UPDATE);
+				FOR_ELEMS(it, state->dampen_belt_velocities)
+				{
+					*it = dampen(*it, state->belt_velocities[it_index], BELT_DAMPENING, SECONDS_PER_UPDATE);
+				}
 
 				FOR_ELEMS(it, state->belt_offsets)
 				{
-					*it += state->belt_velocities[it_index] * SECONDS_PER_UPDATE;
-				}
-
-				if (state->input.accept && !state->prev_input.accept)
-				{
-					switch (state->title_menu.option_index)
-					{
-						case 0:
-						{
-							FOR_ELEMS(it, state->belt_velocities)
-							{
-								*it = rng(&state->seed, -1.5f, -4.0f);
-							}
-
-							state->type                        = StateType::playing;
-							state->playing                     = {};
-							state->playing.ralph_belt_index    = 1;
-							state->playing.ralph_position      = { 4.0f, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
-							state->playing.obstacle_belt_index = rng(&state->seed, 0, 3);
-							state->playing.obstacle_hitbox     = { 0.6f, 0.5f, 0.2f };
-							state->playing.obstacle_position   = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + state->playing.obstacle_hitbox.x / 2.0f, state->playing.obstacle_hitbox.y / 2.0f, -(state->playing.obstacle_belt_index + 0.5f) * BELT_HEIGHT };
-						} break;
-
-						case 1:
-						{
-						} break;
-
-						case 2:
-						{
-						} break;
-
-						case 3:
-						{
-							program->is_running = false;
-							return;
-						} break;
-					}
+					*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
 				}
 			} break;
 
 			case StateType::playing:
 			{
+				FOR_ELEMS(it, state->dampen_belt_velocities)
+				{
+					*it = dampen(*it, state->belt_velocities[it_index], BELT_DAMPENING, SECONDS_PER_UPDATE);
+				}
+
 				if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 				{
 					// @TODO@ Make holding down work nicely.
@@ -267,7 +304,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 						state->playing.calories_burned += CALORIES_PER_SWITCH;
 					}
 
-					state->ralph_running_sprite.seconds_per_frame = sigmoid(state->belt_velocities[state->playing.ralph_belt_index], 0.75f);
+					state->ralph_running_sprite.seconds_per_frame = sigmoid(fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]), -0.75f);
 
 					state->playing.ralph_velocity.y = 0.0f;
 					if (state->input.accept && !state->prev_input.accept)
@@ -285,7 +322,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 				vf3 obstacle_velocity =
 					{
-						state->belt_velocities[state->playing.obstacle_belt_index],
+						state->dampen_belt_velocities[state->playing.obstacle_belt_index],
 						0.0f,
 						0.0f
 					};
@@ -306,7 +343,17 @@ extern "C" PROTOTYPE_UPDATE(update)
 				{
 					FOR_ELEMS(it, state->belt_offsets)
 					{
-						*it += state->belt_velocities[it_index] * SECONDS_PER_UPDATE * collide_t;
+						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE * collide_t;
+					}
+
+					FOR_ELEMS(it, state->dampen_belt_velocities)
+					{
+						*it = 0.0f;
+					}
+
+					FOR_ELEMS(it, state->belt_velocities)
+					{
+						*it = 0.0f;
 					}
 
 					state->ralph_exploding_sprite.frame_index = 0;
@@ -317,7 +364,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 					{
 						state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
-						state->playing.calories_burned  += fabsf(state->belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE * collide_t;
+						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE * collide_t;
 					}
 
 					state->playing.dampen_calories_burned = state->playing.calories_burned;
@@ -329,7 +376,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 				{
 					FOR_ELEMS(it, state->belt_offsets)
 					{
-						*it += state->belt_velocities[it_index] * SECONDS_PER_UPDATE;
+						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
 					}
 
 					state->playing.ralph_position    += state->playing.ralph_velocity * SECONDS_PER_UPDATE;
@@ -338,7 +385,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 					{
 						state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
-						state->playing.calories_burned  += fabsf(state->belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE;
+						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE;
 						loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
 					}
 
@@ -357,11 +404,6 @@ extern "C" PROTOTYPE_UPDATE(update)
 			{
 				if (state->input.accept && !state->prev_input.accept)
 				{
-					FOR_ELEMS(it, state->belt_velocities)
-					{
-						*it = 0.0f;
-					}
-
 					state->type       = StateType::title_menu;
 					state->title_menu = {};
 				}
@@ -407,6 +449,11 @@ extern "C" PROTOTYPE_UPDATE(update)
 				{
 					draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f + (it_index * TITLE_MENU_OPTION_SPACING + state->belt_offsets[1]) * PIXELS_PER_METER, 1.4f * BELT_HEIGHT * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.7f, { 1.0f, 1.0f, 1.0f, 1.0f }, "%s", *it);
 				}
+
+				if (state->title_menu.playing_keytime != -1.0f)
+				{
+					draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
+				}
 			} break;
 
 			case StateType::playing:
@@ -417,15 +464,11 @@ extern "C" PROTOTYPE_UPDATE(update)
 				if (state->type == StateType::playing)
 				{
 					draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
-
 					draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f, (3.5f * BELT_HEIGHT) * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.dampen_calories_burned);
-
-					set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
 				}
 				else
 				{
 					draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
-
 					draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "GAME OVER");
 					draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.calories_burned);
 				}
