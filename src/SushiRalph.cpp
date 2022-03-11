@@ -436,8 +436,9 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 				state->playing.ralph_velocity.z = ((-state->playing.ralph_belt_index - 0.5f) * BELT_HEIGHT - state->playing.ralph_position.z) * 10.0f;
 
-				f32    collide_t = INFINITY;
-				bool32 collided = false;
+				bool32 collided                = false;
+				f32    collide_t               = INFINITY;
+				i32    collided_obstacle_index = -1;
 
 				FOR_ELEMS(it, state->playing.obstacles)
 				{
@@ -447,27 +448,43 @@ extern "C" PROTOTYPE_UPDATE(update)
 						colliding
 						(
 							&it_collide_t,
-							(state->playing.ralph_velocity - vf3 { state->belt_velocities[it->belt_index], 0.0f, 0.0f }) * SECONDS_PER_UPDATE,
+							state->playing.ralph_velocity * SECONDS_PER_UPDATE,
 							state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f,
 							RALPH_HITBOX_DIMENSIONS,
 							it->position - OBSTACLE_ASSETS[it->sprite_index].hitbox / 2.0f,
 							OBSTACLE_ASSETS[it->sprite_index].hitbox
 						)
-						&& it_collide_t < collide_t
+						&& it_collide_t < collide_t // @TODO@ Should be based on distance.
 					)
 					{
-						collide_t = it_collide_t;
-						collided  = true;
+						collided                = true;
+						collide_t               = it_collide_t;
+						collided_obstacle_index = it_index;
 					}
 				}
 
 				if (collided)
+				{
+					state->playing.calories_burned -= 10.0f;
+
+					if (state->playing.calories_burned >= 0.0f)
+					{
+						state->playing.obstacles[collided_obstacle_index] = make_obstacle(state);
+					}
+				}
+
+				if (state->playing.calories_burned < 0.0f)
 				{
 					Mix_PlayChannel(-1, state->explosion_sfx, 0);
 
 					FOR_ELEMS(it, state->belt_offsets)
 					{
 						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE * collide_t;
+					}
+
+					FOR_ELEMS(it, state->playing.obstacles)
+					{
+						it->position += vf3 { state->dampen_belt_velocities[it->belt_index], 0.0f, 0.0f } * SECONDS_PER_UPDATE * collide_t;
 					}
 
 					FOR_ELEMS(it, state->belt_velocities)
@@ -479,11 +496,6 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 					state->ralph_exploding_sprite.frame_index = 0;
 
-					FOR_ELEMS(it, state->playing.obstacles)
-					{
-						it->position += vf3 { state->dampen_belt_velocities[it->belt_index], 0.0f, 0.0f } * SECONDS_PER_UPDATE * collide_t;
-					}
-
 					state->playing.ralph_position += (state->playing.ralph_velocity + vf3 { state->dampen_belt_velocities[state->playing.ralph_belt_index], 0.0f, 0.0f }) * SECONDS_PER_UPDATE * collide_t;
 
 					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
@@ -491,8 +503,6 @@ extern "C" PROTOTYPE_UPDATE(update)
 						state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
 						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index] * SECONDS_PER_UPDATE * collide_t) * CALORIES_PER_METER;
 					}
-
-					state->playing.dampen_calories_burned = state->playing.calories_burned;
 
 					state->background_music_keytime = 0.0f;
 
@@ -529,8 +539,16 @@ extern "C" PROTOTYPE_UPDATE(update)
 					{
 						state->background_music_keytime = sigmoid(0.1f, -1.0f);
 					}
+				}
 
-					state->playing.dampen_calories_burned = dampen(state->playing.dampen_calories_burned, state->playing.calories_burned, 16.0f, SECONDS_PER_UPDATE);
+				if (state->playing.calories_burned > state->playing.peak_calories_burned)
+				{
+					state->playing.peak_calories_burned = state->playing.calories_burned;
+
+					if (state->playing.peak_calories_burned > state->highest_calories_burned)
+					{
+						state->highest_calories_burned = state->playing.peak_calories_burned;
+					}
 				}
 			} break;
 
@@ -633,16 +651,30 @@ extern "C" PROTOTYPE_UPDATE(update)
 					if (it->belt_index == i)
 					{
 						draw_sprite(program->renderer, &state->obstacle_sprites[it->sprite_index], project(it->position));
+						set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
+						draw_hitbox(program->renderer, it->position, OBSTACLE_ASSETS[it->sprite_index].hitbox);
 					}
 				}
 			}
+
+			set_color(program->renderer, { 1.0f, 0.0f, 0.0f, 1.0f });
+			draw_hitbox(program->renderer, state->playing.ralph_position, RALPH_HITBOX_DIMENSIONS);
 
 			if (state->type == StateType::playing)
 			{
 				SDL_SetTextureAlphaMod(state->shadow_sprite.texture, static_cast<u8>(255.0f * CLAMP(1.0f - state->playing.ralph_position.y / 4.0f, 0.0f, 1.0f)));
 				draw_sprite(program->renderer, &state->shadow_sprite, project({ state->playing.ralph_position.x, 0.0f, state->playing.ralph_position.z }));
 				draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
-				draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f, (3.5f * BELT_HEIGHT) * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.dampen_calories_burned);
+				draw_text
+				(
+					program->renderer,
+					state->font,
+					{ WINDOW_DIMENSIONS.x / 2.0f, (3.5f * BELT_HEIGHT) * PIXELS_PER_METER },
+					FC_ALIGN_CENTER,
+					0.5f,
+					{ 1.0f, 1.0f, 1.0f, 1.0f },
+					"Calories burned : %f | Highest calories burned : %f", state->playing.calories_burned, state->highest_calories_burned
+				);
 			}
 			else
 			{
@@ -654,7 +686,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 					state->font,
 					WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f },
 					FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f },
-					"Calories burned : %f\nHighest calories burned : %f", state->playing.calories_burned, state->highest_calories_burned
+					"Peak calories burned : %f\nHighest calories burned : %f", state->playing.peak_calories_burned, state->highest_calories_burned
 				);
 			}
 		}

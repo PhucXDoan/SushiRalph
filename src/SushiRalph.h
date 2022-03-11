@@ -155,7 +155,7 @@ struct State
 		f32      target_ralph_velocity_x;
 		Obstacle obstacles[8];
 		f32      calories_burned;
-		f32      dampen_calories_burned;
+		f32      peak_calories_burned;
 	} playing;
 
 	struct
