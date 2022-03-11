@@ -45,6 +45,10 @@ global constexpr f32    SETTINGS_VOLUME_SLIDE_OFFSET = 7.5f;
 global constexpr f32    SETTINGS_VOLUME_SLIDE_SPEED  = 0.5f;
 global constexpr f32    SETTINGS_VOLUME_SLIDE_WIDTH  = 5.0f;
 
+global constexpr f32    CREDITS_OFFSET = WINDOW_DIMENSIONS.x / PIXELS_PER_METER / 2.0f + 2.0f;
+global constexpr f32    CREDIT_SPACING = 5.0f;
+global constexpr strlit CREDITS[]      = { "Programming : Phuc Doan", "Art : Mila Matthews" };
+
 enum_struct (AudioChannel, u8)
 {
 	background_music = 0,
@@ -164,6 +168,11 @@ struct State
 
 	struct
 	{
+		bool32 showing;
+		f32    keytime;
+
+		f32    initial_belt_offsets[3];
+		i32    credit_index;
 	} credits;
 
 	struct

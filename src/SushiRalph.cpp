@@ -411,7 +411,14 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 							case 2:
 							{
-								state->type = StateType::credits;
+								state->type            = StateType::credits;
+								state->credits         = {};
+								state->credits.showing = true;
+
+								FOR_ELEMS(it, state->credits.initial_belt_offsets)
+								{
+									*it = state->belt_offsets[it_index];
+								}
 							} break;
 
 							case 3:
@@ -547,6 +554,82 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 			case StateType::credits:
 			{
+				if (state->credits.showing)
+				{
+					if (state->credits.keytime < 1.0f)
+					{
+						state->credits.keytime += SECONDS_PER_UPDATE / 1.0f;
+
+						if (state->credits.keytime >= 1.0f)
+						{
+							state->credits.keytime = 1.0f;
+							state->belt_offsets[0] = -CREDITS_OFFSET;
+						}
+						else
+						{
+							state->belt_offsets[0] = lerp(state->credits.initial_belt_offsets[0], -CREDITS_OFFSET, square(ease_in(state->credits.keytime)));
+						}
+					}
+
+					if (state->credits.keytime == 1.0f)
+					{
+						if (state->input.accept)
+						{
+							state->credits.showing                 = false;
+							state->credits.initial_belt_offsets[0] = state->belt_offsets[0];
+
+							state->belt_velocities[0]        = 0.0f;
+							state->dampen_belt_velocities[0] = 0.0f;
+						}
+						else
+						{
+							if (state->input.left && !state->prev_input.left && state->credits.credit_index > 0)
+							{
+								--state->credits.credit_index;
+							}
+							if (state->input.right && !state->prev_input.right && state->credits.credit_index < ARRAY_CAPACITY(CREDITS) - 1)
+							{
+								++state->credits.credit_index;
+							}
+
+							state->belt_velocities[0] = (-state->belt_offsets[0] - state->credits.credit_index * CREDIT_SPACING - CREDITS_OFFSET) * 8.0f;
+						}
+					}
+
+					state->belt_velocities[1] = (-state->belt_offsets[1] - state->title_menu.option_index * TITLE_MENU_OPTION_SPACING) * 16.0f;
+
+					FOR_ELEMS(it, state->dampen_belt_velocities)
+					{
+						*it = dampen(*it, state->belt_velocities[it_index], 24.0f, SECONDS_PER_UPDATE);
+					}
+
+					FOR_ELEMS(it, state->belt_offsets)
+					{
+						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
+					}
+				}
+				else
+				{
+					if (state->credits.keytime > 0.0f)
+					{
+						state->credits.keytime -= SECONDS_PER_UPDATE / 1.0f;
+
+						if (state->credits.keytime <= 0.0f)
+						{
+							state->credits.keytime = 0.0f;
+							state->belt_offsets[0] = 0.0f;
+						}
+						else
+						{
+							state->belt_offsets[0] = lerp(state->credits.initial_belt_offsets[0], 0.0f, square(ease_in(1.0f - state->credits.keytime)));
+						}
+					}
+
+					if (state->credits.keytime == 0.0f)
+					{
+						state->type = StateType::title_menu;
+					}
+				}
 			} break;
 
 			case StateType::playing:
@@ -786,7 +869,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER        }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER        });
 		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER * 2.0f }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER * 2.0f });
 
-		if (state->type == StateType::title_menu || state->type == StateType::playing || state->type == StateType::settings)
+		if (state->type == StateType::title_menu || state->type == StateType::playing || state->type == StateType::settings || state->type == StateType::credits)
 		{
 			draw_text
 			(
@@ -861,6 +944,22 @@ extern "C" PROTOTYPE_UPDATE(update)
 					{ 1.0f, 1.0f, 1.0f, 1.0f },
 					"MAX"
 				);
+			}
+			else if (state->type == StateType::credits)
+			{
+				FOR_ELEMS(it, CREDITS)
+				{
+					draw_text
+					(
+						program->renderer,
+						state->font,
+						{ WINDOW_DIMENSIONS.x / 2.0f + (state->belt_offsets[0] + CREDITS_OFFSET + it_index * CREDIT_SPACING) * PIXELS_PER_METER, 0.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) * 0.25f },
+						FC_ALIGN_CENTER,
+						0.5f,
+						{ 1.0f, 1.0f, 1.0f, 1.0f },
+						*it
+					);
+				}
 			}
 		}
 
