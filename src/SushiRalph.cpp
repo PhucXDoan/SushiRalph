@@ -160,8 +160,9 @@ extern "C" PROTOTYPE_INITIALIZE(initialize)
 	state->type                         = StateType::title_menu;
 	state->title_menu.resetting_keytime = 1.0f;
 
-	state->settings.music_volume = 1.0f;
-	state->settings.sfx_volume   = 1.0f;
+	state->settings.master_volume = 1.0f;
+	state->settings.music_volume  = 1.0f;
+	state->settings.sfx_volume    = 1.0f;
 
 	state->background_music_keytime_dampening = 4.0f;
 }
@@ -283,10 +284,10 @@ extern "C" PROTOTYPE_UPDATE(update)
 		state->seconds_accumulated = 0.0f; // @STICKY@ Lose lagged frames.
 
 		state->dampen_background_music_keytime = dampen(state->dampen_background_music_keytime, state->background_music_keytime, state->background_music_keytime_dampening, SECONDS_PER_UPDATE);
-		Mix_Volume(+AudioChannel::background_music        , static_cast<i32>(        state->dampen_background_music_keytime  * state->settings.music_volume * MIX_MAX_VOLUME));
-		Mix_Volume(+AudioChannel::background_music_muffled, static_cast<i32>((1.0f - state->dampen_background_music_keytime) * state->settings.music_volume * MIX_MAX_VOLUME));
-		Mix_VolumeChunk(state->explosion_sfx, static_cast<i32>(state->settings.sfx_volume * MIX_MAX_VOLUME));
-		Mix_VolumeChunk(state->chomp_sfx    , static_cast<i32>(state->settings.sfx_volume * MIX_MAX_VOLUME));
+		Mix_Volume(+AudioChannel::background_music        , static_cast<i32>(        state->dampen_background_music_keytime  * state->settings.music_volume * state->settings.master_volume * MIX_MAX_VOLUME));
+		Mix_Volume(+AudioChannel::background_music_muffled, static_cast<i32>((1.0f - state->dampen_background_music_keytime) * state->settings.music_volume * state->settings.master_volume * MIX_MAX_VOLUME));
+		Mix_VolumeChunk(state->explosion_sfx, static_cast<i32>(state->settings.sfx_volume * state->settings.master_volume * MIX_MAX_VOLUME));
+		Mix_VolumeChunk(state->chomp_sfx    , static_cast<i32>(state->settings.sfx_volume * state->settings.master_volume * MIX_MAX_VOLUME));
 
 		//
 		// Update.
@@ -444,6 +445,30 @@ extern "C" PROTOTYPE_UPDATE(update)
 							{
 								state->settings.changing_option = false;
 							}
+							else
+							{
+								f32* option = 0;
+
+								switch (state->settings.option_index)
+								{
+									case 1: option = &state->settings.master_volume; break;
+									case 2: option = &state->settings.music_volume;  break;
+									case 3: option = &state->settings.sfx_volume;    break;
+								}
+
+								if (state->input.left)
+								{
+									*option -= SETTINGS_VOLUME_SLIDE_SPEED * SECONDS_PER_UPDATE;
+									*option = CLAMP(*option, 0.0f, 1.0f);
+								}
+								if (state->input.right)
+								{
+									*option += SETTINGS_VOLUME_SLIDE_SPEED * SECONDS_PER_UPDATE;
+									*option = CLAMP(*option, 0.0f, 1.0f);
+								}
+
+								state->belt_velocities[0] = (-SETTINGS_VOLUME_SLIDE_OFFSET - *option * SETTINGS_VOLUME_SLIDE_WIDTH - state->belt_offsets[0]) * 4.0f;
+							}
 						}
 						else
 						{
@@ -461,13 +486,16 @@ extern "C" PROTOTYPE_UPDATE(update)
 							{
 								if (state->settings.option_index == 0)
 								{
-									state->settings.showing = false;
+									state->settings.showing                 = false;
+									state->settings.initial_belt_offsets[0] = state->belt_offsets[0];
 								}
 								else
 								{
 									state->settings.changing_option = true;
 								}
 							}
+
+							state->belt_velocities[0] = (0.0f - state->belt_offsets[0]) * 4.0f;
 						}
 
 						state->belt_velocities[1] = (-SETTINGS_OPTIONS_OFFSET - state->belt_offsets[1] - state->settings.option_index * SETTINGS_OPTION_SPACING) * 16.0f;
@@ -497,12 +525,15 @@ extern "C" PROTOTYPE_UPDATE(update)
 							state->dampen_belt_velocities[it_index] = 0.0f;
 						}
 
+						state->belt_offsets[0] = 0.0f;
+
 						state->type                         = StateType::title_menu;
 						state->title_menu.resetting_keytime = 1.0f;
 					}
 					else
 					{
 						state->belt_offsets[1] = lerp(-SETTINGS_OPTIONS_OFFSET - state->settings.option_index * SETTINGS_OPTION_SPACING, state->settings.initial_belt_offsets[1], square(ease_in(1.0f - state->settings.show_keytime)));
+						state->belt_offsets[0] = lerp(state->settings.initial_belt_offsets[0], 0.0f, square(ease_in(1.0f - state->settings.show_keytime)));
 					}
 				}
 
@@ -802,6 +833,28 @@ extern "C" PROTOTYPE_UPDATE(update)
 						"%s", *it
 					);
 				}
+
+				draw_text
+				(
+					program->renderer,
+					state->font,
+					{ WINDOW_DIMENSIONS.x / 2.0f + (state->belt_offsets[0] + SETTINGS_VOLUME_SLIDE_OFFSET) * PIXELS_PER_METER, 0.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f },
+					FC_ALIGN_CENTER,
+					1.0f,
+					{ 1.0f, 1.0f, 1.0f, 1.0f },
+					"MIN"
+				);
+
+				draw_text
+				(
+					program->renderer,
+					state->font,
+					{ WINDOW_DIMENSIONS.x / 2.0f + (state->belt_offsets[0] + SETTINGS_VOLUME_SLIDE_OFFSET + SETTINGS_VOLUME_SLIDE_WIDTH) * PIXELS_PER_METER, 0.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f },
+					FC_ALIGN_CENTER,
+					1.0f,
+					{ 1.0f, 1.0f, 1.0f, 1.0f },
+					"MAX"
+				);
 			}
 		}
 

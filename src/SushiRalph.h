@@ -38,9 +38,12 @@ global constexpr f32    TITLE_MENU_OPTION_SPACING = 2.0f;
 global constexpr strlit TITLE_MENU_OPTIONS[]      = { "Play", "Settings", "Credits", "Exit" };
 global constexpr f32    TITLE_MENU_OPTIONS_WIDTH  = WINDOW_DIMENSIONS.x / PIXELS_PER_METER * 0.75f;
 
-global constexpr f32    SETTINGS_OPTIONS_OFFSET = TITLE_MENU_OPTIONS_WIDTH + 5.0f;
-global constexpr f32    SETTINGS_OPTION_SPACING = 3.0f;
-global constexpr strlit SETTINGS_OPTIONS[]      = { "Back", "Master volume", "Music volume", "SFX volume" };
+global constexpr f32    SETTINGS_OPTIONS_OFFSET      = TITLE_MENU_OPTIONS_WIDTH + 5.0f;
+global constexpr f32    SETTINGS_OPTION_SPACING      = 3.0f;
+global constexpr strlit SETTINGS_OPTIONS[]           = { "Back", "Master volume", "Music volume", "SFX volume" };
+global constexpr f32    SETTINGS_VOLUME_SLIDE_OFFSET = 7.5f;
+global constexpr f32    SETTINGS_VOLUME_SLIDE_SPEED  = 0.5f;
+global constexpr f32    SETTINGS_VOLUME_SLIDE_WIDTH  = 5.0f;
 
 enum_struct (AudioChannel, u8)
 {
@@ -153,6 +156,8 @@ struct State
 
 		bool32 changing_option;
 		i32    option_index;
+
+		f32    master_volume;
 		f32    music_volume;
 		f32    sfx_volume;
 	} settings;
