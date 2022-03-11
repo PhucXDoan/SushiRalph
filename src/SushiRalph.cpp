@@ -160,6 +160,9 @@ extern "C" PROTOTYPE_INITIALIZE(initialize)
 	state->type                         = StateType::title_menu;
 	state->title_menu.resetting_keytime = 1.0f;
 
+	state->settings.music_volume = 1.0f;
+	state->settings.sfx_volume   = 1.0f;
+
 	state->background_music_keytime_dampening = 4.0f;
 }
 
@@ -280,8 +283,10 @@ extern "C" PROTOTYPE_UPDATE(update)
 		state->seconds_accumulated = 0.0f; // @STICKY@ Lose lagged frames.
 
 		state->dampen_background_music_keytime = dampen(state->dampen_background_music_keytime, state->background_music_keytime, state->background_music_keytime_dampening, SECONDS_PER_UPDATE);
-		Mix_Volume(+AudioChannel::background_music        , static_cast<i32>(        state->dampen_background_music_keytime  * MIX_MAX_VOLUME));
-		Mix_Volume(+AudioChannel::background_music_muffled, static_cast<i32>((1.0f - state->dampen_background_music_keytime) * MIX_MAX_VOLUME));
+		Mix_Volume(+AudioChannel::background_music        , static_cast<i32>(        state->dampen_background_music_keytime  * state->settings.music_volume * MIX_MAX_VOLUME));
+		Mix_Volume(+AudioChannel::background_music_muffled, static_cast<i32>((1.0f - state->dampen_background_music_keytime) * state->settings.music_volume * MIX_MAX_VOLUME));
+		Mix_VolumeChunk(state->explosion_sfx, static_cast<i32>(state->settings.sfx_volume * MIX_MAX_VOLUME));
+		Mix_VolumeChunk(state->chomp_sfx    , static_cast<i32>(state->settings.sfx_volume * MIX_MAX_VOLUME));
 
 		//
 		// Update.
@@ -301,30 +306,34 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 						FOR_ELEMS(it, state->belt_offsets)
 						{
-							*it = 0.0f;
+							if (it_index == 1)
+							{
+								*it = -TITLE_MENU_OPTION_SPACING * state->title_menu.option_index;
+							}
+							else
+							{
+								*it = 0.0f;
+							}
 						}
 					}
 					else
 					{
 						FOR_ELEMS(it, state->belt_offsets)
 						{
-							*it = lerp(state->title_menu.initial_belt_offsets[it_index], 0.0f, square(ease_in(state->title_menu.resetting_keytime)));
+							if (it_index == 1)
+							{
+								*it = lerp(state->title_menu.initial_belt_offsets[it_index], -TITLE_MENU_OPTION_SPACING * state->title_menu.option_index, square(ease_in(state->title_menu.resetting_keytime)));
+							}
+							else
+							{
+								*it = lerp(state->title_menu.initial_belt_offsets[it_index], 0.0f, square(ease_in(state->title_menu.resetting_keytime)));
+							}
 						}
 					}
 				}
 
 				if (state->title_menu.resetting_keytime == 1.0f)
 				{
-					FOR_ELEMS(it, state->dampen_belt_velocities)
-					{
-						*it = dampen(*it, state->belt_velocities[it_index], 24.0f, SECONDS_PER_UPDATE);
-					}
-
-					FOR_ELEMS(it, state->belt_offsets)
-					{
-						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
-					}
-
 					// @TODO@ Make holding down work nicely.
 					if (state->input.left && !state->prev_input.left && state->title_menu.option_index > 0)
 					{
@@ -336,6 +345,16 @@ extern "C" PROTOTYPE_UPDATE(update)
 					}
 
 					state->belt_velocities[1] = (-state->belt_offsets[1] - state->title_menu.option_index * TITLE_MENU_OPTION_SPACING) * 16.0f;
+
+					FOR_ELEMS(it, state->dampen_belt_velocities)
+					{
+						*it = dampen(*it, state->belt_velocities[it_index], 24.0f, SECONDS_PER_UPDATE);
+					}
+
+					FOR_ELEMS(it, state->belt_offsets)
+					{
+						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
+					}
 
 					if (state->input.accept && !state->prev_input.accept)
 					{
@@ -365,10 +384,27 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 							case 1:
 							{
+								FOR_ELEMS(it, state->belt_velocities)
+								{
+									*it = 0.0f;
+									state->dampen_belt_velocities[it_index] = 0.0f;
+								}
+
+								state->type                  = StateType::settings;
+								state->settings.showing      = true;
+								state->settings.show_keytime = 0.0f;
+
+								FOR_ELEMS(it, state->settings.initial_belt_offsets)
+								{
+									*it = state->belt_offsets[it_index];
+								}
+
+								state->settings.option_index  = 1;
 							} break;
 
 							case 2:
 							{
+								state->type = StateType::credits;
 							} break;
 
 							case 3:
@@ -379,6 +415,101 @@ extern "C" PROTOTYPE_UPDATE(update)
 						}
 					}
 				}
+			} break;
+
+			case StateType::settings:
+			{
+				if (state->settings.showing)
+				{
+					if (state->settings.show_keytime < 1.0f)
+					{
+						state->settings.show_keytime += SECONDS_PER_UPDATE / 1.0f;
+
+						if (state->settings.show_keytime >= 1.0f)
+						{
+							state->settings.show_keytime = 1.0f;
+							state->belt_offsets[1] = -SETTINGS_OPTIONS_OFFSET - state->settings.option_index * SETTINGS_OPTION_SPACING;
+						}
+						else
+						{
+							state->belt_offsets[1] = lerp(state->settings.initial_belt_offsets[1], -SETTINGS_OPTIONS_OFFSET - state->settings.option_index * SETTINGS_OPTION_SPACING, square(ease_in(state->settings.show_keytime)));
+						}
+					}
+
+					if (state->settings.show_keytime == 1.0f)
+					{
+						if (state->settings.changing_option)
+						{
+							if (state->input.accept && !state->prev_input.accept)
+							{
+								state->settings.changing_option = false;
+							}
+						}
+						else
+						{
+							// @TODO@ Make holding down work nicely.
+							if (state->input.left && !state->prev_input.left && state->settings.option_index > 0)
+							{
+								--state->settings.option_index;
+							}
+							if (state->input.right && !state->prev_input.right && state->settings.option_index < ARRAY_CAPACITY(SETTINGS_OPTIONS) - 1)
+							{
+								++state->settings.option_index;
+							}
+
+							if (state->input.accept && !state->prev_input.accept)
+							{
+								if (state->settings.option_index == 0)
+								{
+									state->settings.showing = false;
+								}
+								else
+								{
+									state->settings.changing_option = true;
+								}
+							}
+						}
+
+						state->belt_velocities[1] = (-SETTINGS_OPTIONS_OFFSET - state->belt_offsets[1] - state->settings.option_index * SETTINGS_OPTION_SPACING) * 16.0f;
+
+						FOR_ELEMS(it, state->dampen_belt_velocities)
+						{
+							*it = dampen(*it, state->belt_velocities[it_index], 24.0f, SECONDS_PER_UPDATE);
+						}
+
+						FOR_ELEMS(it, state->belt_offsets)
+						{
+							*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
+						}
+					}
+				}
+				else if (state->settings.show_keytime > 0.0f)
+				{
+					state->settings.show_keytime -= SECONDS_PER_UPDATE / 1.0f;
+
+					if (state->settings.show_keytime <= 0.0f)
+					{
+						state->settings.show_keytime = 0.0f;
+
+						FOR_ELEMS(it, state->belt_velocities)
+						{
+							*it = 0.0f;
+							state->dampen_belt_velocities[it_index] = 0.0f;
+						}
+
+						state->type                         = StateType::title_menu;
+						state->title_menu.resetting_keytime = 1.0f;
+					}
+					else
+					{
+						state->belt_offsets[1] = lerp(-SETTINGS_OPTIONS_OFFSET - state->settings.option_index * SETTINGS_OPTION_SPACING, state->settings.initial_belt_offsets[1], square(ease_in(1.0f - state->settings.show_keytime)));
+					}
+				}
+
+			} break;
+
+			case StateType::credits:
+			{
 			} break;
 
 			case StateType::playing:
@@ -618,7 +749,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER        }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER        });
 		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER * 2.0f }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER * 2.0f });
 
-		if (state->type == StateType::title_menu || state->type == StateType::playing)
+		if (state->type == StateType::title_menu || state->type == StateType::playing || state->type == StateType::settings)
 		{
 			draw_text
 			(
@@ -643,6 +774,34 @@ extern "C" PROTOTYPE_UPDATE(update)
 					{ 1.0f, 1.0f, 1.0f, 1.0f },
 					"%s", *it
 				);
+			}
+
+			if (state->type == StateType::settings)
+			{
+				draw_text
+				(
+					program->renderer,
+					state->font,
+					{ WINDOW_DIMENSIONS.x / 2.0f + state->belt_offsets[2] * PIXELS_PER_METER, 2.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f },
+					FC_ALIGN_CENTER,
+					1.0f,
+					{ 1.0f, 1.0f, 1.0f, 1.0f },
+					"Sushi Ralph"
+				);
+
+				FOR_ELEMS(it, SETTINGS_OPTIONS)
+				{
+					draw_text
+					(
+						program->renderer,
+						state->font,
+						{ WINDOW_DIMENSIONS.x / 2.0f + (it_index * SETTINGS_OPTION_SPACING + state->belt_offsets[1] + SETTINGS_OPTIONS_OFFSET) * PIXELS_PER_METER, 1.4f * BELT_HEIGHT * PIXELS_PER_METER },
+						FC_ALIGN_CENTER,
+						0.7f,
+						{ 1.0f, 1.0f, 1.0f, 1.0f },
+						"%s", *it
+					);
+				}
 			}
 		}
 

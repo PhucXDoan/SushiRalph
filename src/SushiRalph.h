@@ -35,14 +35,12 @@ global constexpr vf3 RALPH_HITBOX_DIMENSIONS   = { 0.6f, 0.6f, 0.075f };
 global constexpr f32 RALPH_X                   = 4.0f;
 
 global constexpr f32    TITLE_MENU_OPTION_SPACING = 2.0f;
-global constexpr strlit TITLE_MENU_OPTIONS[]      =
-	{
-		"Play",
-		"Options",
-		"Credits",
-		"Exit"
-	};
-global constexpr f32    TITLE_MENU_OPTIONS_WIDTH = WINDOW_DIMENSIONS.x / PIXELS_PER_METER * 0.75f;
+global constexpr strlit TITLE_MENU_OPTIONS[]      = { "Play", "Settings", "Credits", "Exit" };
+global constexpr f32    TITLE_MENU_OPTIONS_WIDTH  = WINDOW_DIMENSIONS.x / PIXELS_PER_METER * 0.75f;
+
+global constexpr f32    SETTINGS_OPTIONS_OFFSET = TITLE_MENU_OPTIONS_WIDTH + 5.0f;
+global constexpr f32    SETTINGS_OPTION_SPACING = 3.0f;
+global constexpr strlit SETTINGS_OPTIONS[]      = { "Back", "Master volume", "Music volume", "SFX volume" };
 
 enum_struct (AudioChannel, u8)
 {
@@ -120,6 +118,8 @@ struct Input
 enum_struct (StateType, u32)
 {
 	title_menu = 1,
+	settings,
+	credits,
 	playing,
 	game_over
 };
@@ -140,10 +140,26 @@ struct State
 	struct
 	{
 		f32 resetting_keytime;
-
 		f32 initial_belt_offsets[3];
+
 		i32 option_index;
 	} title_menu;
+
+	struct
+	{
+		bool32 showing;
+		f32    show_keytime;
+		f32    initial_belt_offsets[3];
+
+		bool32 changing_option;
+		i32    option_index;
+		f32    music_volume;
+		f32    sfx_volume;
+	} settings;
+
+	struct
+	{
+	} credits;
 
 	struct
 	{
