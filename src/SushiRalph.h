@@ -28,6 +28,8 @@ global constexpr f32 CALORIES_PER_JUMP   = 4.0f;
 global constexpr f32 BELT_SPACING              = 0.5f;
 global constexpr f32 BELT_HEIGHT               = 0.75f;
 global constexpr f32 BELT_LIGHTNESS[]          = { 0.6f, 0.575f, 0.625f };
+global constexpr f32 BELT_MAX_SPEED            = 1.0f;
+global constexpr f32 BELT_MIN_SPEED            = 6.0f;
 
 global constexpr vf3 RALPH_HITBOX_DIMENSIONS   = { 0.6f, 0.6f, 0.075f };
 global constexpr f32 RALPH_X                   = 4.0f;
@@ -138,13 +140,15 @@ struct State
 	struct
 	{
 		f32 resetting_keytime;
-		f32 initial_belt_offsets[3];
 
+		f32 initial_belt_offsets[3];
 		i32 option_index;
 	} title_menu;
 
 	struct
 	{
+		f32      belt_velocity_update_keytime;
+
 		i32      ralph_belt_index;
 		vf3      ralph_position;
 		vf3      ralph_velocity;

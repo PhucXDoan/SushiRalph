@@ -341,7 +341,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 							{
 								FOR_ELEMS(it, state->belt_velocities)
 								{
-									*it = rng(&state->seed, -1.0f, -6.0f);
+									*it = rng(&state->seed, -BELT_MIN_SPEED, -BELT_MAX_SPEED);
 								}
 								FOR_ELEMS(it, state->dampen_belt_velocities)
 								{
@@ -379,6 +379,22 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 			case StateType::playing:
 			{
+				if (state->playing.belt_velocity_update_keytime < 1.0f)
+				{
+					state->playing.belt_velocity_update_keytime += SECONDS_PER_UPDATE / 8.0f;
+
+					if (state->playing.belt_velocity_update_keytime >= 1.0f)
+					{
+						state->playing.belt_velocity_update_keytime = 1.0f;
+
+						FOR_ELEMS(it, state->belt_velocities)
+						{
+							*it = rng(&state->seed, -BELT_MIN_SPEED, -BELT_MAX_SPEED);
+						}
+						DEBUG_printf("UPDATE\n");
+					}
+				}
+
 				FOR_ELEMS(it, state->dampen_belt_velocities)
 				{
 					*it = dampen(*it, state->belt_velocities[it_index], 1.0f, SECONDS_PER_UPDATE);
