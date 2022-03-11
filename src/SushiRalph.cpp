@@ -194,6 +194,9 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	if (!save_data_error)
 	{
 		fread(&state->highest_calories_burned, 1, sizeof(state->highest_calories_burned), save_data);
+		fread(&state->settings.master_volume , 1, sizeof(state->settings.master_volume) , save_data);
+		fread(&state->settings.music_volume  , 1, sizeof(state->settings.music_volume)  , save_data);
+		fread(&state->settings.sfx_volume    , 1, sizeof(state->settings.sfx_volume)    , save_data);
 		fclose(save_data);
 	}
 	else
@@ -223,6 +226,9 @@ extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
 	if (save_data_error == 0)
 	{
 		fwrite(&state->highest_calories_burned, 1, sizeof(state->highest_calories_burned), save_data);
+		fwrite(&state->settings.master_volume , 1, sizeof(state->settings.master_volume) , save_data);
+		fwrite(&state->settings.music_volume  , 1, sizeof(state->settings.music_volume)  , save_data);
+		fwrite(&state->settings.sfx_volume    , 1, sizeof(state->settings.sfx_volume)    , save_data);
 		fclose(save_data);
 	}
 	else
