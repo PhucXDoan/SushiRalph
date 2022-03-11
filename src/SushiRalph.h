@@ -174,4 +174,5 @@ struct State
 	Mix_Chunk* background_music;
 	Mix_Chunk* background_music_muffled;
 	Mix_Chunk* explosion_sfx;
+	Mix_Chunk* chomp_sfx;
 };

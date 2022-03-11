@@ -182,6 +182,7 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	state->background_music         = Mix_LoadWAV("W:/data/Giant Steps.wav");
 	state->background_music_muffled = Mix_LoadWAV("W:/data/Giant Steps Muffled.wav");
 	state->explosion_sfx            = Mix_LoadWAV("W:/data/explosion.wav");
+	state->chomp_sfx                = Mix_LoadWAV("W:/data/chomp.wav");
 
 	FILE* save_data;
 	errno_t save_data_error = fopen_s(&save_data, SAVE_DATA_FILE_PATH, "rb");
@@ -207,6 +208,7 @@ extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
 {
 	State* state = reinterpret_cast<State*>(program->memory);
 
+	Mix_FreeChunk(state->chomp_sfx);
 	Mix_FreeChunk(state->explosion_sfx);
 	Mix_FreeChunk(state->background_music_muffled);
 	Mix_FreeChunk(state->background_music);
@@ -469,6 +471,8 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 					if (state->playing.calories_burned >= 0.0f)
 					{
+						Mix_PlayChannel(-1, state->chomp_sfx, 0);
+
 						state->playing.obstacles[collided_obstacle_index] = make_obstacle(state);
 					}
 				}
