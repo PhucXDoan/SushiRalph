@@ -36,7 +36,15 @@ internal inline f32 rng(u32* seed, f32 start, f32 end)
 	return rng(seed) * (end - start) + start;
 }
 
-internal bool32 collide_rect_rect(f32* result, vf3 ray, vf3 corner_a, vf3 dimensions_a, vf3 corner_b, vf3 dimensions_b)
+internal inline bool32 colliding(vf3 corner_a, vf3 dimensions_a, vf3 corner_b, vf3 dimensions_b)
+{
+	return
+		corner_a.x < corner_b.x + dimensions_b.x && corner_a.x + dimensions_a.x > corner_b.x &&
+		corner_a.y < corner_b.y + dimensions_b.y && corner_a.y + dimensions_a.y > corner_b.y &&
+		corner_a.z < corner_b.z + dimensions_b.z && corner_a.z + dimensions_a.z > corner_b.z;
+}
+
+internal bool32 colliding(f32* result, vf3 ray, vf3 corner_a, vf3 dimensions_a, vf3 corner_b, vf3 dimensions_b)
 {
 	vf3 delta = corner_b - corner_a;
 	f32 ts[] =
@@ -124,6 +132,26 @@ internal void loop_sprite(Sprite* sprite, f32 dt)
 	}
 }
 
+internal Obstacle make_obstacle(State* state)
+{
+	Obstacle obstacle;
+	obstacle.sprite_index = rng(&state->seed, 0, ARRAY_CAPACITY(state->obstacle_sprites));
+	obstacle.belt_index   = rng(&state->seed, 0, 3);
+	obstacle.position     = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + OBSTACLE_ASSETS[obstacle.sprite_index].hitbox.x + rng(&state->seed, 0.0f, 4.0f), OBSTACLE_ASSETS[obstacle.sprite_index].hitbox.y / 2.0f, -(obstacle.belt_index + 0.5f) * BELT_HEIGHT };
+
+	// @TODO@ Optimize?
+	FOR_ELEMS(it, state->playing.obstacles)
+	{
+		if (colliding(obstacle.position, OBSTACLE_ASSETS[obstacle.sprite_index].hitbox, it->position, OBSTACLE_ASSETS[it->sprite_index].hitbox))
+		{
+			obstacle.position.x = it->position.x + OBSTACLE_ASSETS[it->sprite_index].hitbox.x + OBSTACLE_ASSETS[obstacle.sprite_index].hitbox.x;
+			it_index = -1;
+		}
+	}
+
+	return obstacle;
+}
+
 extern "C" PROTOTYPE_INITIALIZE(initialize)
 {
 	State* state = reinterpret_cast<State*>(program->memory);
@@ -157,7 +185,7 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	FILE* save_data;
 	errno_t save_data_error = fopen_s(&save_data, SAVE_DATA_FILE_PATH, "rb");
 
-	if (save_data_error == 0)
+	if (!save_data_error)
 	{
 		fread(&state->highest_calories_burned, 1, sizeof(state->highest_calories_burned), save_data);
 		fclose(save_data);
@@ -165,6 +193,7 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	else
 	{
 		DEBUG_printf("No save file found at '%s'.\n", SAVE_DATA_FILE_PATH);
+		state->highest_calories_burned = 0.0f;
 	}
 
 	Mix_PlayChannel(+AudioChannel::background_music        , state->background_music        , -1);
@@ -326,9 +355,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 								FOR_ELEMS(it, state->playing.obstacles)
 								{
-									it->sprite_index = rng(&state->seed, 0, ARRAY_CAPACITY(state->obstacle_sprites));
-									it->belt_index   = rng(&state->seed, 0, 3);
-									it->position     = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + OBSTACLE_ASSETS[it->sprite_index].hitbox.x / 2.0f, OBSTACLE_ASSETS[it->sprite_index].hitbox.y / 2.0f, -(it->belt_index + 0.5f) * BELT_HEIGHT };
+									*it = make_obstacle(state);
 								}
 							} break;
 
@@ -411,7 +438,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 					f32 it_collide_t;
 					if
 					(
-						collide_rect_rect
+						colliding
 						(
 							&it_collide_t,
 							(state->playing.ralph_velocity - vf3 { state->dampen_belt_velocities[it->belt_index], 0.0f, 0.0f }) * SECONDS_PER_UPDATE,
@@ -481,9 +508,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 						if (it->position.x + OBSTACLE_ASSETS[it->sprite_index].hitbox.x / 2.0f < 0.0f)
 						{
-							it->sprite_index = rng(&state->seed, 0, ARRAY_CAPACITY(state->obstacle_sprites));
-							it->belt_index   = rng(&state->seed, 0, 3);
-							it->position     = { WINDOW_DIMENSIONS.x / PIXELS_PER_METER + OBSTACLE_ASSETS[it->sprite_index].hitbox.x / 2.0f, OBSTACLE_ASSETS[it->sprite_index].hitbox.y / 2.0f, -(it->belt_index + 0.5f) * BELT_HEIGHT };
+							*it = make_obstacle(state);
 						}
 					}
 
@@ -493,12 +518,14 @@ extern "C" PROTOTYPE_UPDATE(update)
 						state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
 						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index] * SECONDS_PER_UPDATE) * CALORIES_PER_METER;
 						loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
+						state->background_music_keytime = sigmoid(state->belt_velocities[state->playing.ralph_belt_index] + 3.0f, -1.0f);
+					}
+					else
+					{
+						state->background_music_keytime = sigmoid(0.1f, -1.0f);
 					}
 
 					state->playing.dampen_calories_burned = dampen(state->playing.dampen_calories_burned, state->playing.calories_burned, 16.0f, SECONDS_PER_UPDATE);
-
-					state->background_music_keytime = sigmoid(state->belt_velocities[state->playing.ralph_belt_index] + 3.0f, -1.0f);
-					DEBUG_printf("%f\n", state->dampen_background_music_keytime);
 				}
 			} break;
 
@@ -592,52 +619,36 @@ extern "C" PROTOTYPE_UPDATE(update)
 			}
 		}
 
-		if (state->type == StateType::playing)
+		if (state->type == StateType::playing || state->type == StateType::game_over)
 		{
-			draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
-
-			FOR_ELEMS(it, state->playing.obstacles)
+			FOR_RANGE_REV(i, ARRAY_CAPACITY(state->belt_offsets))
 			{
-				draw_sprite(program->renderer, &state->obstacle_sprites[it->sprite_index], project(it->position));
+				FOR_ELEMS(it, state->playing.obstacles)
+				{
+					if (it->belt_index == i)
+					{
+						draw_sprite(program->renderer, &state->obstacle_sprites[it->sprite_index], project(it->position));
+					}
+				}
 			}
 
-			draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f, (3.5f * BELT_HEIGHT) * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.dampen_calories_burned);
-
-			set_color(program->renderer, { 0.0f, 1.0f, 0.0f, 1.0f });
-			draw_hitbox(program->renderer, state->playing.ralph_position, RALPH_HITBOX_DIMENSIONS);
-
-			set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-			FOR_ELEMS(it, state->playing.obstacles)
+			if (state->type == StateType::playing)
 			{
-				draw_hitbox(program->renderer, it->position, OBSTACLE_ASSETS[it->sprite_index].hitbox);
+				draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
+				draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f, (3.5f * BELT_HEIGHT) * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.dampen_calories_burned);
 			}
-		}
-		else if (state->type == StateType::game_over)
-		{
-			draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
-
-			FOR_ELEMS(it, state->playing.obstacles)
+			else
 			{
-				draw_sprite(program->renderer, &state->obstacle_sprites[it->sprite_index], project(it->position));
-			}
-
-			draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "GAME OVER");
-			draw_text
-			(
-				program->renderer,
-				state->font,
-				WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f },
-				FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f },
-				"Calories burned : %f\nHighest calories burned : %f", state->playing.calories_burned, state->highest_calories_burned
-			);
-
-			set_color(program->renderer, { 0.0f, 1.0f, 0.0f, 1.0f });
-			draw_hitbox(program->renderer, state->playing.ralph_position, RALPH_HITBOX_DIMENSIONS);
-
-			set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-			FOR_ELEMS(it, state->playing.obstacles)
-			{
-				draw_hitbox(program->renderer, it->position, OBSTACLE_ASSETS[it->sprite_index].hitbox);
+				draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
+				draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "GAME OVER");
+				draw_text
+				(
+					program->renderer,
+					state->font,
+					WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f },
+					FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f },
+					"Calories burned : %f\nHighest calories burned : %f", state->playing.calories_burned, state->highest_calories_burned
+				);
 			}
 		}
 

@@ -145,12 +145,12 @@ struct State
 
 	struct
 	{
-		f32       intro_keytime;
+		f32      intro_keytime;
 
 		i32      ralph_belt_index;
 		vf3      ralph_position;
 		vf3      ralph_velocity;
-		Obstacle obstacles[4];
+		Obstacle obstacles[8];
 		f32      calories_burned;
 		f32      dampen_calories_burned;
 	} playing;
@@ -159,10 +159,10 @@ struct State
 	{
 	} game_over;
 
-	FC_Font* font;
-	Sprite   ralph_running_sprite;
-	Sprite   ralph_exploding_sprite;
-	Sprite   obstacle_sprites[ARRAY_CAPACITY(OBSTACLE_ASSETS)];
+	FC_Font*   font;
+	Sprite     ralph_running_sprite;
+	Sprite     ralph_exploding_sprite;
+	Sprite     obstacle_sprites[ARRAY_CAPACITY(OBSTACLE_ASSETS)];
 
 	f32        background_music_keytime;
 	f32        dampen_background_music_keytime;
