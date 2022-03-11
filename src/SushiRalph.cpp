@@ -131,6 +131,8 @@ extern "C" PROTOTYPE_INITIALIZE(initialize)
 	*state = {};
 	state->type                         = StateType::title_menu;
 	state->title_menu.resetting_keytime = 1.0f;
+
+	state->background_music_keytime_dampening = 4.0f;
 }
 
 extern "C" PROTOTYPE_BOOT_UP(boot_up)
@@ -148,7 +150,9 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 		state->obstacle_sprites[asset_index] = load_sprite(program->renderer, asset->file_path, asset->scalar, asset->origin);
 	}
 
-	state->explosion_audio = Mix_LoadWAV("W:/data/explosion.wav");
+	state->background_music         = Mix_LoadWAV("W:/data/Giant Steps.wav");
+	state->background_music_muffled = Mix_LoadWAV("W:/data/Giant Steps Muffled.wav");
+	state->explosion_sfx            = Mix_LoadWAV("W:/data/explosion.wav");
 
 	FILE* save_data;
 	errno_t save_data_error = fopen_s(&save_data, SAVE_DATA_FILE_PATH, "rb");
@@ -162,13 +166,20 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	{
 		DEBUG_printf("No save file found at '%s'.\n", SAVE_DATA_FILE_PATH);
 	}
+
+	Mix_PlayChannel(+AudioChannel::background_music        , state->background_music        , -1);
+	Mix_PlayChannel(+AudioChannel::background_music_muffled, state->background_music_muffled, -1);
+	Mix_Volume(+AudioChannel::background_music        ,              0);
+	Mix_Volume(+AudioChannel::background_music_muffled, MIX_MAX_VOLUME);
 }
 
 extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
 {
 	State* state = reinterpret_cast<State*>(program->memory);
 
-	Mix_FreeChunk(state->explosion_audio);
+	Mix_FreeChunk(state->explosion_sfx);
+	Mix_FreeChunk(state->background_music_muffled);
+	Mix_FreeChunk(state->background_music);
 
 	FILE* save_data;
 	errno_t save_data_error = fopen_s(&save_data, SAVE_DATA_FILE_PATH, "wb");
@@ -235,6 +246,10 @@ extern "C" PROTOTYPE_UPDATE(update)
 	{
 		state->seconds_accumulated = 0.0f; // @STICKY@ Lose lagged frames.
 
+		state->dampen_background_music_keytime = dampen(state->dampen_background_music_keytime, state->background_music_keytime, state->background_music_keytime_dampening, SECONDS_PER_UPDATE);
+		Mix_Volume(+AudioChannel::background_music        , static_cast<i32>(        state->dampen_background_music_keytime  * MIX_MAX_VOLUME));
+		Mix_Volume(+AudioChannel::background_music_muffled, static_cast<i32>((1.0f - state->dampen_background_music_keytime) * MIX_MAX_VOLUME));
+
 		//
 		// Update.
 		//
@@ -297,7 +312,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 							{
 								FOR_ELEMS(it, state->belt_velocities)
 								{
-									*it = rng(&state->seed, -1.5f, -4.0f);
+									*it = rng(&state->seed, -1.0f, -6.0f);
 								}
 								FOR_ELEMS(it, state->dampen_belt_velocities)
 								{
@@ -415,7 +430,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 				if (collided)
 				{
-					Mix_PlayChannel(-1, state->explosion_audio, 0);
+					Mix_PlayChannel(-1, state->explosion_sfx, 0);
 
 					FOR_ELEMS(it, state->belt_offsets)
 					{
@@ -441,10 +456,12 @@ extern "C" PROTOTYPE_UPDATE(update)
 					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 					{
 						state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
-						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE * collide_t;
+						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index] * SECONDS_PER_UPDATE * collide_t) * CALORIES_PER_METER;
 					}
 
 					state->playing.dampen_calories_burned = state->playing.calories_burned;
+
+					state->background_music_keytime = 0.0f;
 
 					state->type      = StateType::game_over;
 					state->game_over = {};
@@ -456,7 +473,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
 					}
 
-					state->playing.ralph_position    += state->playing.ralph_velocity * SECONDS_PER_UPDATE;
+					state->playing.ralph_position += state->playing.ralph_velocity * SECONDS_PER_UPDATE;
 
 					FOR_ELEMS(it, state->playing.obstacles)
 					{
@@ -474,11 +491,14 @@ extern "C" PROTOTYPE_UPDATE(update)
 					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 					{
 						state->playing.ralph_position.y  = RALPH_HITBOX_DIMENSIONS.y / 2.0f;
-						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index]) * CALORIES_PER_METER_PER_SECOND * SECONDS_PER_UPDATE;
+						state->playing.calories_burned  += fabsf(state->dampen_belt_velocities[state->playing.ralph_belt_index] * SECONDS_PER_UPDATE) * CALORIES_PER_METER;
 						loop_sprite(&state->ralph_running_sprite, SECONDS_PER_UPDATE);
 					}
 
 					state->playing.dampen_calories_burned = dampen(state->playing.dampen_calories_burned, state->playing.calories_burned, 16.0f, SECONDS_PER_UPDATE);
+
+					state->background_music_keytime = sigmoid(state->belt_velocities[state->playing.ralph_belt_index] + 3.0f, -1.0f);
+					DEBUG_printf("%f\n", state->dampen_background_music_keytime);
 				}
 			} break;
 

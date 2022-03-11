@@ -18,12 +18,12 @@ global constexpr ObstacleAsset OBSTACLE_ASSETS[]   =
 		{ "W:/data/sushi_3.bmp", 0.15f, { 0.5f, 0.5f }, { 1.25f, 1.0f, 0.2f } }
 	};
 
-global constexpr f32 SECONDS_PER_UPDATE            = 1.0f / 30.0f;
-global constexpr f32 PIXELS_PER_METER              = 128.0f;
-global constexpr f32 GRAVITY                       = -9.81f;
-global constexpr f32 CALORIES_PER_METER_PER_SECOND = 0.5f;
-global constexpr f32 CALORIES_PER_SWITCH           = 1.0f;
-global constexpr f32 CALORIES_PER_JUMP             = 4.0f;
+global constexpr f32 SECONDS_PER_UPDATE  = 1.0f / 30.0f;
+global constexpr f32 PIXELS_PER_METER    = 128.0f;
+global constexpr f32 GRAVITY             = -9.81f;
+global constexpr f32 CALORIES_PER_METER  = 0.5f;
+global constexpr f32 CALORIES_PER_SWITCH = 1.0f;
+global constexpr f32 CALORIES_PER_JUMP   = 4.0f;
 
 global constexpr f32 BELT_SPACING              = 0.5f;
 global constexpr f32 BELT_HEIGHT               = 0.75f;
@@ -41,6 +41,12 @@ global constexpr strlit TITLE_MENU_OPTIONS[]      =
 		"Exit"
 	};
 global constexpr f32    TITLE_MENU_OPTIONS_WIDTH = WINDOW_DIMENSIONS.x / PIXELS_PER_METER * 0.75f;
+
+enum_struct (AudioChannel, u8)
+{
+	background_music = 0,
+	background_music_muffled
+};
 
 // @TODO@ Use an actual RNG lol.
 // @STICKY@ Is in interval [0, 65536).
@@ -158,5 +164,10 @@ struct State
 	Sprite   ralph_exploding_sprite;
 	Sprite   obstacle_sprites[ARRAY_CAPACITY(OBSTACLE_ASSETS)];
 
-	Mix_Chunk* explosion_audio;
+	f32        background_music_keytime;
+	f32        dampen_background_music_keytime;
+	f32        background_music_keytime_dampening;
+	Mix_Chunk* background_music;
+	Mix_Chunk* background_music_muffled;
+	Mix_Chunk* explosion_sfx;
 };
