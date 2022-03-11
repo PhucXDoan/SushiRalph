@@ -165,6 +165,7 @@ struct State
 	FC_Font*   font;
 	Sprite     ralph_running_sprite;
 	Sprite     ralph_exploding_sprite;
+	Sprite     shadow_sprite;
 	Sprite     obstacle_sprites[ARRAY_CAPACITY(OBSTACLE_ASSETS)];
 
 	f32        background_music_keytime;

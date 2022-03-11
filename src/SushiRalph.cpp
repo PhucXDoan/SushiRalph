@@ -170,8 +170,9 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	state->font = FC_CreateFont();
 	FC_LoadFont(state->font, program->renderer, "C:/code/misc/fonts/Consolas.ttf", 64, { 255, 255, 255, 255 }, TTF_STYLE_NORMAL);
 
-	state->ralph_running_sprite   = load_sprite(program->renderer, "W:/data/ralph_running.bmp", 0.6f, { 0.5f, 0.4f }, 4, 0.25f);
-	state->ralph_exploding_sprite = load_sprite(program->renderer, "W:/data/ralph_exploding.bmp", 0.6f, { 0.5f, 0.4f }, 4, 0.15f);
+	state->ralph_running_sprite   = load_sprite(program->renderer, "W:/data/ralph_running.bmp"   , 0.6f, { 0.5f, 0.4f }, 4, 0.25f);
+	state->ralph_exploding_sprite = load_sprite(program->renderer, "W:/data/ralph_exploding.bmp" , 0.6f, { 0.5f, 0.4f }, 4, 0.15f);
+	state->shadow_sprite          = load_sprite(program->renderer, "W:/data/shadow.bmp", 0.2f, { 0.5f, 1.0f });
 
 	FOR_ELEMS(asset, OBSTACLE_ASSETS)
 	{
@@ -226,6 +227,7 @@ extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
 	FC_FreeFont(state->font);
 	SDL_DestroyTexture(state->ralph_running_sprite.texture);
 	SDL_DestroyTexture(state->ralph_exploding_sprite.texture);
+	SDL_DestroyTexture(state->shadow_sprite.texture);
 
 	FOR_ELEMS(it, state->obstacle_sprites)
 	{
@@ -381,7 +383,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 			{
 				if (state->playing.belt_velocity_update_keytime < 1.0f)
 				{
-					state->playing.belt_velocity_update_keytime += SECONDS_PER_UPDATE / 8.0f;
+					state->playing.belt_velocity_update_keytime += SECONDS_PER_UPDATE / 4.0f;
 
 					if (state->playing.belt_velocity_update_keytime >= 1.0f)
 					{
@@ -391,7 +393,8 @@ extern "C" PROTOTYPE_UPDATE(update)
 						{
 							*it = rng(&state->seed, -BELT_MIN_SPEED, -BELT_MAX_SPEED);
 						}
-						DEBUG_printf("UPDATE\n");
+
+						state->playing.belt_velocity_update_keytime = 0.0f;
 					}
 				}
 
@@ -636,6 +639,8 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 			if (state->type == StateType::playing)
 			{
+				SDL_SetTextureAlphaMod(state->shadow_sprite.texture, static_cast<u8>(255.0f * CLAMP(1.0f - state->playing.ralph_position.y / 4.0f, 0.0f, 1.0f)));
+				draw_sprite(program->renderer, &state->shadow_sprite, project({ state->playing.ralph_position.x, 0.0f, state->playing.ralph_position.z }));
 				draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
 				draw_text(program->renderer, state->font, { WINDOW_DIMENSIONS.x / 2.0f, (3.5f * BELT_HEIGHT) * PIXELS_PER_METER }, FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f }, "Calories burned : %f", state->playing.dampen_calories_burned);
 			}
