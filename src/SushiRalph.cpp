@@ -144,7 +144,7 @@ internal Obstacle make_obstacle(State* state)
 	{
 		if (colliding(obstacle.position, OBSTACLE_ASSETS[obstacle.sprite_index].hitbox, it->position, OBSTACLE_ASSETS[it->sprite_index].hitbox))
 		{
-			obstacle.position.x = it->position.x + OBSTACLE_ASSETS[it->sprite_index].hitbox.x + OBSTACLE_ASSETS[obstacle.sprite_index].hitbox.x;
+			obstacle.position.x = it->position.x + OBSTACLE_ASSETS[it->sprite_index].hitbox.x + OBSTACLE_ASSETS[obstacle.sprite_index].hitbox.x + 1.0f;
 			it_index = -1;
 		}
 	}
@@ -379,26 +379,13 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 			case StateType::playing:
 			{
-				if (state->playing.intro_keytime < 1.0f)
-				{
-					state->playing.intro_keytime += SECONDS_PER_UPDATE / 1.0f;
-
-					if (state->playing.intro_keytime >= 1.0f)
-					{
-						state->playing.intro_keytime    = 1.0f;
-						state->playing.ralph_position.x = RALPH_X;
-						state->playing.ralph_velocity.x = 0.0f;
-					}
-					else
-					{
-						state->playing.ralph_velocity.x = (lerp(0.0f, RALPH_X, ease_in(state->playing.intro_keytime)) - state->playing.ralph_position.x) / SECONDS_PER_UPDATE;
-					}
-				}
-
 				FOR_ELEMS(it, state->dampen_belt_velocities)
 				{
 					*it = dampen(*it, state->belt_velocities[it_index], 1.0f, SECONDS_PER_UPDATE);
 				}
+
+				state->playing.target_ralph_velocity_x = (RALPH_X - state->playing.ralph_position.x) * 4.0f;
+				state->playing.ralph_velocity.x        = dampen(state->playing.ralph_velocity.x, state->playing.target_ralph_velocity_x, 2.0f, SECONDS_PER_UPDATE);
 
 				if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 				{
@@ -414,7 +401,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 						state->playing.calories_burned += CALORIES_PER_SWITCH;
 					}
 
-					state->ralph_running_sprite.seconds_per_frame = sigmoid(state->playing.ralph_velocity.x - state->dampen_belt_velocities[state->playing.ralph_belt_index], -0.75f);
+					state->ralph_running_sprite.seconds_per_frame = sigmoid(state->playing.ralph_velocity.x, -0.75f);
 
 					state->playing.ralph_velocity.y = 0.0f;
 					if (state->input.accept && !state->prev_input.accept)
@@ -441,7 +428,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 						colliding
 						(
 							&it_collide_t,
-							(state->playing.ralph_velocity - vf3 { state->dampen_belt_velocities[it->belt_index], 0.0f, 0.0f }) * SECONDS_PER_UPDATE,
+							(state->playing.ralph_velocity - vf3 { state->belt_velocities[it->belt_index], 0.0f, 0.0f }) * SECONDS_PER_UPDATE,
 							state->playing.ralph_position - RALPH_HITBOX_DIMENSIONS / 2.0f,
 							RALPH_HITBOX_DIMENSIONS,
 							it->position - OBSTACLE_ASSETS[it->sprite_index].hitbox / 2.0f,
@@ -473,12 +460,12 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 					state->ralph_exploding_sprite.frame_index = 0;
 
-					state->playing.ralph_position    += state->playing.ralph_velocity * SECONDS_PER_UPDATE * collide_t;
-
 					FOR_ELEMS(it, state->playing.obstacles)
 					{
 						it->position += vf3 { state->dampen_belt_velocities[it->belt_index], 0.0f, 0.0f } * SECONDS_PER_UPDATE * collide_t;
 					}
+
+					state->playing.ralph_position += (state->playing.ralph_velocity + vf3 { state->dampen_belt_velocities[state->playing.ralph_belt_index], 0.0f, 0.0f }) * SECONDS_PER_UPDATE * collide_t;
 
 					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 					{
@@ -500,8 +487,6 @@ extern "C" PROTOTYPE_UPDATE(update)
 						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
 					}
 
-					state->playing.ralph_position += state->playing.ralph_velocity * SECONDS_PER_UPDATE;
-
 					FOR_ELEMS(it, state->playing.obstacles)
 					{
 						it->position += vf3 { state->dampen_belt_velocities[it->belt_index], 0.0f, 0.0f } * SECONDS_PER_UPDATE;
@@ -512,6 +497,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 						}
 					}
 
+					state->playing.ralph_position += (state->playing.ralph_velocity + vf3 { state->dampen_belt_velocities[state->playing.ralph_belt_index], 0.0f, 0.0f }) * SECONDS_PER_UPDATE;
 
 					if (state->playing.ralph_position.y - RALPH_HITBOX_DIMENSIONS.y / 2.0f <= 0.0f)
 					{

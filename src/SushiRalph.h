@@ -145,11 +145,10 @@ struct State
 
 	struct
 	{
-		f32      intro_keytime;
-
 		i32      ralph_belt_index;
 		vf3      ralph_position;
 		vf3      ralph_velocity;
+		f32      target_ralph_velocity_x;
 		Obstacle obstacles[8];
 		f32      calories_burned;
 		f32      dampen_calories_burned;
