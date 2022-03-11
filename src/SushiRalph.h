@@ -188,6 +188,7 @@ struct State
 		Obstacle obstacles[8];
 		f32      calories_burned;
 		f32      peak_calories_burned;
+		f32      time;
 	} playing;
 
 	struct

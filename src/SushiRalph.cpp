@@ -718,7 +718,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 				if (collided)
 				{
-					state->playing.calories_burned -= state->playing.peak_calories_burned * 0.25f + 10.0f;
+					state->playing.calories_burned -= state->playing.peak_calories_burned * 0.25f + state->playing.time / 4.0f + 10.0f;
 
 					if (state->playing.calories_burned >= 0.0f)
 					{
@@ -760,6 +760,8 @@ extern "C" PROTOTYPE_UPDATE(update)
 					}
 
 					state->background_music_keytime = 0.0f;
+
+					state->playing.time += SECONDS_PER_UPDATE * collide_t;
 
 					state->type      = StateType::game_over;
 					state->game_over = {};
@@ -806,6 +808,8 @@ extern "C" PROTOTYPE_UPDATE(update)
 					{
 						state->background_music_keytime = sigmoid(0.1f, -1.0f);
 					}
+
+					state->playing.time += SECONDS_PER_UPDATE;
 				}
 
 				if (state->playing.calories_burned > state->playing.peak_calories_burned)
@@ -853,6 +857,11 @@ extern "C" PROTOTYPE_UPDATE(update)
 					if (state->game_over.keytime == 1.0f)
 					{
 						FOR_ELEMS(it, state->belt_velocities)
+						{
+							*it = 0.0f;
+						}
+
+						FOR_ELEMS(it, state->dampen_belt_velocities)
 						{
 							*it = 0.0f;
 						}
@@ -921,7 +930,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 		// Render.
 		//
 
-		set_color(program->renderer, {});
+		set_color(program->renderer, { 0.1f, 0.2f, 0.3f, 1.0f });
 		SDL_RenderClear(program->renderer);
 
 		FOR_RANGE(belt_index, 3)
@@ -1079,7 +1088,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 					FC_ALIGN_CENTER,
 					0.5f,
 					{ 1.0f, 1.0f, 1.0f, 1.0f },
-					"Peak calories burned : %f\nRecord highest calories burned : %f", state->playing.peak_calories_burned, state->highest_calories_burned
+					"Peak calories burned : %.2f\nRecord highest calories burned : %.2f", state->playing.peak_calories_burned, state->highest_calories_burned
 				);
 			}
 		}
