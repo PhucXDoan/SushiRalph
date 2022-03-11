@@ -18,7 +18,7 @@ global constexpr ObstacleAsset OBSTACLE_ASSETS[]   =
 		{ "W:/data/sushi_3.bmp", 0.15f, { 0.5f, 0.5f }, { 1.25f, 1.0f, 0.2f } }
 	};
 
-global constexpr f32 SECONDS_PER_UPDATE  = 1.0f / 30.0f;
+global constexpr f32 SECONDS_PER_UPDATE  = 1.0f / 60.0f;
 global constexpr f32 PIXELS_PER_METER    = 128.0f;
 global constexpr f32 GRAVITY             = -9.81f;
 global constexpr f32 CALORIES_PER_METER  = 2.5f;

@@ -381,7 +381,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 								state->type                          = StateType::playing;
 								state->playing                       = {};
 								state->playing.ralph_belt_index      = 1;
-								state->playing.ralph_position        = { 0.0f, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
+								state->playing.ralph_position        = { -3.0f, RALPH_HITBOX_DIMENSIONS.y / 2.0f, -1.5f * BELT_HEIGHT };
 
 								FOR_ELEMS(it, state->playing.obstacles)
 								{
