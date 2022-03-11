@@ -718,7 +718,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 				if (collided)
 				{
-					state->playing.calories_burned -= 10.0f;
+					state->playing.calories_burned -= state->playing.peak_calories_burned * 0.25f + 10.0f;
 
 					if (state->playing.calories_burned >= 0.0f)
 					{
@@ -763,6 +763,18 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 					state->type      = StateType::game_over;
 					state->game_over = {};
+
+					FOR_ELEMS(it, state->game_over.initial_belt_offsets)
+					{
+						*it = state->belt_offsets[it_index];
+					}
+
+					state->game_over.stat_belt_index = rng(&state->seed, 0, ARRAY_CAPACITY(state->belt_offsets));
+
+					if (state->playing.ralph_belt_index == state->game_over.stat_belt_index)
+					{
+						state->game_over.stat_belt_index = (state->game_over.stat_belt_index + 1) % ARRAY_CAPACITY(state->belt_offsets);
+					}
 				}
 				else
 				{
@@ -809,19 +821,18 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 			case StateType::game_over:
 			{
-				if (state->input.accept && !state->prev_input.accept)
+				if (state->game_over.exiting)
 				{
-					state->type       = StateType::title_menu;
-					state->title_menu = {};
-
-					FOR_ELEMS(it, state->title_menu.initial_belt_offsets)
+					if (state->game_over.keytime < 1.0f)
 					{
-						*it = TITLE_MENU_OPTIONS_WIDTH + fmodf(state->belt_offsets[it_index], BELT_SPACING) + rng(&state->seed, 0, 16) * BELT_SPACING;
-						state->belt_offsets[it_index] = *it;
+						state->game_over.keytime += SECONDS_PER_UPDATE / 1.5f;
+
+						if (state->game_over.keytime >= 1.0f)
+						{
+							state->game_over.keytime = 1.0f;
+						}
 					}
-				}
-				else
-				{
+
 					FOR_ELEMS(it, state->dampen_belt_velocities)
 					{
 						*it = dampen(*it, state->belt_velocities[it_index], 4.0f, SECONDS_PER_UPDATE);
@@ -832,7 +843,55 @@ extern "C" PROTOTYPE_UPDATE(update)
 						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
 					}
 
-					state->playing.ralph_position.x    += state->dampen_belt_velocities[state->playing.ralph_belt_index] * SECONDS_PER_UPDATE;
+					state->playing.ralph_position.x += state->dampen_belt_velocities[state->playing.ralph_belt_index] * SECONDS_PER_UPDATE;
+
+					FOR_ELEMS(it, state->playing.obstacles)
+					{
+						it->position.x += state->dampen_belt_velocities[it->belt_index] * SECONDS_PER_UPDATE;
+					}
+
+					if (state->game_over.keytime == 1.0f)
+					{
+						FOR_ELEMS(it, state->belt_velocities)
+						{
+							*it = 0.0f;
+						}
+
+						state->type       = StateType::title_menu;
+						state->title_menu = {};
+
+						FOR_ELEMS(it, state->title_menu.initial_belt_offsets)
+						{
+							*it = TITLE_MENU_OPTIONS_WIDTH + fmodf(state->belt_offsets[it_index], BELT_SPACING) + rng(&state->seed, 0, 16) * BELT_SPACING;
+							state->belt_offsets[it_index] = *it;
+						}
+					}
+				}
+				else
+				{
+					if (state->game_over.keytime < 1.0f)
+					{
+						state->game_over.keytime += SECONDS_PER_UPDATE / 1.0f;
+
+						if (state->game_over.keytime >= 1.0f)
+						{
+							state->game_over.keytime = 1.0f;
+						}
+					}
+
+					state->belt_velocities[state->game_over.stat_belt_index] = (state->game_over.initial_belt_offsets[state->game_over.stat_belt_index] - GAME_OVER_STATS_OFFSET - state->belt_offsets[state->game_over.stat_belt_index]) * 1.5f;
+
+					FOR_ELEMS(it, state->dampen_belt_velocities)
+					{
+						*it = dampen(*it, state->belt_velocities[it_index], 4.0f, SECONDS_PER_UPDATE);
+					}
+
+					FOR_ELEMS(it, state->belt_offsets)
+					{
+						*it += state->dampen_belt_velocities[it_index] * SECONDS_PER_UPDATE;
+					}
+
+					state->playing.ralph_position.x += state->dampen_belt_velocities[state->playing.ralph_belt_index] * SECONDS_PER_UPDATE;
 
 					FOR_ELEMS(it, state->playing.obstacles)
 					{
@@ -840,6 +899,20 @@ extern "C" PROTOTYPE_UPDATE(update)
 					}
 
 					age_sprite(&state->ralph_exploding_sprite, SECONDS_PER_UPDATE);
+
+					if (state->game_over.keytime == 1.0f)
+					{
+						if (state->input.accept && !state->prev_input.accept)
+						{
+							state->game_over.exiting = true;
+							state->game_over.keytime = 0.0f;
+
+							FOR_ELEMS(it, state->belt_velocities)
+							{
+								*it = -10.0f;
+							}
+						}
+					}
 				}
 			} break;
 		}
@@ -973,13 +1046,11 @@ extern "C" PROTOTYPE_UPDATE(update)
 					{
 						draw_sprite(program->renderer, &state->obstacle_sprites[it->sprite_index], project(it->position));
 						set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
-						draw_hitbox(program->renderer, it->position, OBSTACLE_ASSETS[it->sprite_index].hitbox);
 					}
 				}
 			}
 
 			set_color(program->renderer, { 1.0f, 0.0f, 0.0f, 1.0f });
-			draw_hitbox(program->renderer, state->playing.ralph_position, RALPH_HITBOX_DIMENSIONS);
 
 			if (state->type == StateType::playing)
 			{
@@ -990,24 +1061,25 @@ extern "C" PROTOTYPE_UPDATE(update)
 				(
 					program->renderer,
 					state->font,
-					{ WINDOW_DIMENSIONS.x / 2.0f, (3.5f * BELT_HEIGHT) * PIXELS_PER_METER },
+					project({ state->playing.ralph_position.x, 0.0f, state->playing.ralph_position.z + BELT_HEIGHT * 0.45f }),
 					FC_ALIGN_CENTER,
-					0.5f,
+					0.3f,
 					{ 1.0f, 1.0f, 1.0f, 1.0f },
-					"Calories burned : %f | Highest calories burned : %f", state->playing.calories_burned, state->highest_calories_burned
+					"Calories burned : %.2f", state->playing.calories_burned
 				);
 			}
 			else
 			{
 				draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
-				draw_text(program->renderer, state->font, WINDOW_DIMENSIONS / 2.0f, FC_ALIGN_CENTER, 1.0f, { 1.0f, 1.0f, 1.0f, 1.0f }, "GAME OVER");
 				draw_text
 				(
 					program->renderer,
 					state->font,
-					WINDOW_DIMENSIONS / 2.0f - vf2 { 0.0f, 45.0f },
-					FC_ALIGN_CENTER, 0.5f, { 1.0f, 1.0f, 1.0f, 1.0f },
-					"Peak calories burned : %f\nHighest calories burned : %f", state->playing.peak_calories_burned, state->highest_calories_burned
+					{ WINDOW_DIMENSIONS.x / 2.0f + (state->belt_offsets[state->game_over.stat_belt_index] - state->game_over.initial_belt_offsets[state->game_over.stat_belt_index] + GAME_OVER_STATS_OFFSET) * PIXELS_PER_METER, (state->game_over.stat_belt_index + 0.5f) * BELT_HEIGHT * PIXELS_PER_METER + FC_GetBaseline(state->font) * 0.2f },
+					FC_ALIGN_CENTER,
+					0.5f,
+					{ 1.0f, 1.0f, 1.0f, 1.0f },
+					"Peak calories burned : %f\nRecord highest calories burned : %f", state->playing.peak_calories_burned, state->highest_calories_burned
 				);
 			}
 		}

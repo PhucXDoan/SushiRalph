@@ -21,7 +21,7 @@ global constexpr ObstacleAsset OBSTACLE_ASSETS[]   =
 global constexpr f32 SECONDS_PER_UPDATE  = 1.0f / 30.0f;
 global constexpr f32 PIXELS_PER_METER    = 128.0f;
 global constexpr f32 GRAVITY             = -9.81f;
-global constexpr f32 CALORIES_PER_METER  = 0.5f;
+global constexpr f32 CALORIES_PER_METER  = 2.5f;
 global constexpr f32 CALORIES_PER_SWITCH = 1.0f;
 global constexpr f32 CALORIES_PER_JUMP   = 4.0f;
 
@@ -48,6 +48,8 @@ global constexpr f32    SETTINGS_VOLUME_SLIDE_WIDTH  = 5.0f;
 global constexpr f32    CREDITS_OFFSET = WINDOW_DIMENSIONS.x / PIXELS_PER_METER / 2.0f + 2.0f;
 global constexpr f32    CREDIT_SPACING = 5.0f;
 global constexpr strlit CREDITS[]      = { "Programming : Phuc Doan", "Art : Mila Matthews" };
+
+global constexpr f32    GAME_OVER_STATS_OFFSET = 25.0f;
 
 enum_struct (AudioChannel, u8)
 {
@@ -170,8 +172,8 @@ struct State
 	{
 		bool32 showing;
 		f32    keytime;
-
 		f32    initial_belt_offsets[3];
+
 		i32    credit_index;
 	} credits;
 
@@ -190,6 +192,11 @@ struct State
 
 	struct
 	{
+		bool32 exiting;
+		f32    keytime;
+		f32    initial_belt_offsets[3];
+
+		i32 stat_belt_index;
 	} game_over;
 
 	FC_Font*   font;
