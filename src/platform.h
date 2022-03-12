@@ -5,9 +5,9 @@
 #include <SDL_Mixer.h>
 #include "unified.h"
 
-global constexpr strlit  PROGRAM_DLL_FILE_PATH      = "W:/build/SushiRalph.dll";
-global constexpr strlit  PROGRAM_DLL_TEMP_FILE_PATH = "W:/build/SushiRalph.dll.temp";
-global constexpr strlit  LOCK_FILE_PATH             = "W:/build/LOCK.tmp";
+global constexpr strlit  PROGRAM_DLL_FILE_PATH      = ROOT_DIR "build/SushiRalph.dll";
+global constexpr strlit  PROGRAM_DLL_TEMP_FILE_PATH = ROOT_DIR "build/SushiRalph.dll.temp";
+global constexpr strlit  LOCK_FILE_PATH             = ROOT_DIR "build/LOCK.tmp";
 global constexpr memsize MEMORY_CAPACITY            = MEBIBYTES_OF(1);
 global constexpr vf2     WINDOW_DIMENSIONS          = vf2 ( 1280, 128 * 3 );
 

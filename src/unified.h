@@ -78,6 +78,9 @@ enum struct NAME : TYPE
 #include <stdio.h>
 #define DEBUG_printf(FSTR, ...) do { char TEMP_DEBUG_PRINTF_##__LINE__[512]; sprintf_s(TEMP_DEBUG_PRINTF_##__LINE__, sizeof(TEMP_DEBUG_PRINTF_##__LINE__), (FSTR), __VA_ARGS__); OutputDebugStringA(TEMP_DEBUG_PRINTF_##__LINE__); } while (false)
 #define DEBUG_once              for (persist bool32 DEBUG_ONCE_##__LINE__ = true; DEBUG_ONCE_##__LINE__; DEBUG_ONCE_##__LINE__ = false)
+#else
+#define DEBUG_printf(FSTR, ...)
+#define DEBUG_once
 #endif
 
 template <typename F>

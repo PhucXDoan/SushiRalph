@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "SushiRalph.h"
 #include "render.cpp"
 
@@ -174,19 +175,19 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	state->font = FC_CreateFont();
 	FC_LoadFont(state->font, program->renderer, "C:/code/misc/fonts/Consolas.ttf", 64, { 255, 255, 255, 255 }, TTF_STYLE_NORMAL);
 
-	state->ralph_running_sprite   = load_sprite(program->renderer, "W:/data/ralph_running.bmp"   , 0.6f, { 0.5f, 0.4f }, 4, 0.25f);
-	state->ralph_exploding_sprite = load_sprite(program->renderer, "W:/data/ralph_exploding.bmp" , 0.6f, { 0.5f, 0.4f }, 4, 0.15f);
-	state->shadow_sprite          = load_sprite(program->renderer, "W:/data/shadow.bmp", 0.2f, { 0.5f, 1.0f });
+	state->ralph_running_sprite   = load_sprite(program->renderer, ROOT_DIR "data/ralph_running.bmp"   , 0.6f, { 0.5f, 0.4f }, 4, 0.25f);
+	state->ralph_exploding_sprite = load_sprite(program->renderer, ROOT_DIR "data/ralph_exploding.bmp" , 0.6f, { 0.5f, 0.4f }, 4, 0.15f);
+	state->shadow_sprite          = load_sprite(program->renderer, ROOT_DIR "data/shadow.bmp", 0.2f, { 0.5f, 1.0f });
 
 	FOR_ELEMS(asset, OBSTACLE_ASSETS)
 	{
 		state->obstacle_sprites[asset_index] = load_sprite(program->renderer, asset->file_path, asset->scalar, asset->origin);
 	}
 
-	state->background_music         = Mix_LoadWAV("W:/data/Giant Steps.wav");
-	state->background_music_muffled = Mix_LoadWAV("W:/data/Giant Steps Muffled.wav");
-	state->explosion_sfx            = Mix_LoadWAV("W:/data/explosion.wav");
-	state->chomp_sfx                = Mix_LoadWAV("W:/data/chomp.wav");
+	state->background_music         = Mix_LoadWAV(ROOT_DIR "data/Giant Steps.wav");
+	state->background_music_muffled = Mix_LoadWAV(ROOT_DIR "data/Giant Steps Muffled.wav");
+	state->explosion_sfx            = Mix_LoadWAV(ROOT_DIR "data/explosion.wav");
+	state->chomp_sfx                = Mix_LoadWAV(ROOT_DIR "data/chomp.wav");
 
 	FILE* save_data;
 	errno_t save_data_error = fopen_s(&save_data, SAVE_DATA_FILE_PATH, "rb");

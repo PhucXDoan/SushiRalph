@@ -9,13 +9,13 @@ struct ObstacleAsset
 	vf3    hitbox;
 };
 
-global constexpr strlit        SAVE_DATA_FILE_PATH = "W:/data/SushiRalph.save";
+global constexpr strlit        SAVE_DATA_FILE_PATH = ROOT_DIR "data/SushiRalph.save";
 global constexpr ObstacleAsset OBSTACLE_ASSETS[]   =
 	{
-		{ "W:/data/sushi_0.bmp", 0.15f, { 0.5f, 0.6f }, { 0.69f, 0.5f, 0.2f } },
-		{ "W:/data/sushi_1.bmp", 0.15f, { 0.5f, 0.6f }, { 0.50f, 0.5f, 0.2f } },
-		{ "W:/data/sushi_2.bmp", 0.10f, { 0.5f, 0.7f }, { 0.49f, 0.5f, 0.2f } },
-		{ "W:/data/sushi_3.bmp", 0.15f, { 0.5f, 0.5f }, { 1.25f, 1.0f, 0.2f } }
+		{ ROOT_DIR "data/sushi_0.bmp", 0.15f, { 0.5f, 0.6f }, { 0.69f, 0.5f, 0.2f } },
+		{ ROOT_DIR "data/sushi_1.bmp", 0.15f, { 0.5f, 0.6f }, { 0.50f, 0.5f, 0.2f } },
+		{ ROOT_DIR "data/sushi_2.bmp", 0.10f, { 0.5f, 0.7f }, { 0.49f, 0.5f, 0.2f } },
+		{ ROOT_DIR "data/sushi_3.bmp", 0.15f, { 0.5f, 0.5f }, { 1.25f, 1.0f, 0.2f } }
 	};
 
 global constexpr f32 SECONDS_PER_UPDATE  = 1.0f / 60.0f;
