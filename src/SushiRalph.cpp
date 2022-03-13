@@ -173,7 +173,7 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 	State* state = reinterpret_cast<State*>(program->memory);
 
 	state->font = FC_CreateFont();
-	FC_LoadFont(state->font, program->renderer, "C:/code/misc/fonts/Consolas.ttf", 64, { 255, 255, 255, 255 }, TTF_STYLE_NORMAL);
+	FC_LoadFont(state->font, program->renderer, WORKING_DIR "data/Consolas.ttf", 64, { 255, 255, 255, 255 }, TTF_STYLE_NORMAL);
 
 	state->ralph_running_sprite   = load_sprite(program->renderer, WORKING_DIR "data/ralph_running.bmp"   , 0.6f, { 0.5f, 0.4f }, 4, 0.25f);
 	state->ralph_exploding_sprite = load_sprite(program->renderer, WORKING_DIR "data/ralph_exploding.bmp" , 0.6f, { 0.5f, 0.4f }, 4, 0.15f);
