@@ -1,5 +1,6 @@
 #pragma once
 #include "platform.h"
+#include "unified.h"
 
 struct ObstacleAsset
 {
@@ -9,13 +10,13 @@ struct ObstacleAsset
 	vf3    hitbox;
 };
 
-global constexpr strlit        SAVE_DATA_FILE_PATH = WORKING_DIR "data/SushiRalph.save";
+global constexpr strlit        SAVE_DATA_FILE_PATH = DATA_DIR "SushiRalph.save";
 global constexpr ObstacleAsset OBSTACLE_ASSETS[]   =
 	{
-		{ WORKING_DIR "data/sushi_0.bmp", 0.15f, { 0.5f, 0.6f }, { 0.69f, 0.5f, 0.2f } },
-		{ WORKING_DIR "data/sushi_1.bmp", 0.15f, { 0.5f, 0.6f }, { 0.50f, 0.5f, 0.2f } },
-		{ WORKING_DIR "data/sushi_2.bmp", 0.10f, { 0.5f, 0.7f }, { 0.49f, 0.5f, 0.2f } },
-		{ WORKING_DIR "data/sushi_3.bmp", 0.15f, { 0.5f, 0.5f }, { 1.25f, 1.0f, 0.2f } }
+		{ DATA_DIR "sushi_0.bmp", 0.15f, { 0.5f, 0.6f }, { 0.69f, 0.5f, 0.2f } },
+		{ DATA_DIR "sushi_1.bmp", 0.15f, { 0.5f, 0.6f }, { 0.50f, 0.5f, 0.2f } },
+		{ DATA_DIR "sushi_2.bmp", 0.10f, { 0.5f, 0.7f }, { 0.49f, 0.5f, 0.2f } },
+		{ DATA_DIR "sushi_3.bmp", 0.15f, { 0.5f, 0.5f }, { 1.25f, 1.0f, 0.2f } }
 	};
 
 global constexpr f32 SECONDS_PER_UPDATE  = 1.0f / 60.0f;
@@ -35,7 +36,7 @@ global constexpr vf3 RALPH_HITBOX_DIMENSIONS   = { 0.6f, 0.6f, 0.075f };
 global constexpr f32 RALPH_X                   = 4.0f;
 
 global constexpr f32    TITLE_MENU_OPTION_SPACING = 2.0f;
-global constexpr strlit TITLE_MENU_OPTIONS[]      = { "Play", "Settings", "Credits", "Exit" };
+global constexpr strlit TITLE_MENU_OPTIONS[]      = { "Options", "Settings", "Credits", "Exit" };
 global constexpr f32    TITLE_MENU_OPTIONS_WIDTH  = WINDOW_DIMENSIONS.x / PIXELS_PER_METER * 0.75f;
 
 global constexpr f32    SETTINGS_OPTIONS_OFFSET      = TITLE_MENU_OPTIONS_WIDTH + 5.0f;

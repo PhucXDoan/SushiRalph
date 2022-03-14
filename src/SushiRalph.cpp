@@ -1,4 +1,8 @@
 #include <stdio.h>
+#include <SDL.h>
+#include <SDL_ttf.h>
+#include <SDL_FontCache.h>
+#include <SDL_Mixer.h>
 #include "SushiRalph.h"
 #include "render.cpp"
 
@@ -155,7 +159,7 @@ internal Obstacle make_obstacle(State* state)
 
 extern "C" PROTOTYPE_INITIALIZE(initialize)
 {
-	State* state = reinterpret_cast<State*>(program->memory);
+	State* state = reinterpret_cast<State*>(platform->memory);
 
 	*state = {};
 	state->type                         = StateType::title_menu;
@@ -170,24 +174,24 @@ extern "C" PROTOTYPE_INITIALIZE(initialize)
 
 extern "C" PROTOTYPE_BOOT_UP(boot_up)
 {
-	State* state = reinterpret_cast<State*>(program->memory);
+	State* state = reinterpret_cast<State*>(platform->memory);
 
 	state->font = FC_CreateFont();
-	FC_LoadFont(state->font, program->renderer, WORKING_DIR "data/Consolas.ttf", 64, { 255, 255, 255, 255 }, TTF_STYLE_NORMAL);
+	FC_LoadFont(state->font, platform->renderer, DATA_DIR "Consolas.ttf", 64, { 255, 255, 255, 255 }, TTF_STYLE_NORMAL);
 
-	state->ralph_running_sprite   = load_sprite(program->renderer, WORKING_DIR "data/ralph_running.bmp"   , 0.6f, { 0.5f, 0.4f }, 4, 0.25f);
-	state->ralph_exploding_sprite = load_sprite(program->renderer, WORKING_DIR "data/ralph_exploding.bmp" , 0.6f, { 0.5f, 0.4f }, 4, 0.15f);
-	state->shadow_sprite          = load_sprite(program->renderer, WORKING_DIR "data/shadow.bmp", 0.2f, { 0.5f, 1.0f });
+	state->ralph_running_sprite   = load_sprite(platform->renderer, DATA_DIR "ralph_running.bmp"   , 0.6f, { 0.5f, 0.4f }, 4, 0.25f);
+	state->ralph_exploding_sprite = load_sprite(platform->renderer, DATA_DIR "ralph_exploding.bmp" , 0.6f, { 0.5f, 0.4f }, 4, 0.15f);
+	state->shadow_sprite          = load_sprite(platform->renderer, DATA_DIR "shadow.bmp", 0.2f, { 0.5f, 1.0f });
 
 	FOR_ELEMS(asset, OBSTACLE_ASSETS)
 	{
-		state->obstacle_sprites[asset_index] = load_sprite(program->renderer, asset->file_path, asset->scalar, asset->origin);
+		state->obstacle_sprites[asset_index] = load_sprite(platform->renderer, asset->file_path, asset->scalar, asset->origin);
 	}
 
-	state->background_music         = Mix_LoadWAV(WORKING_DIR "data/Giant Steps.wav");
-	state->background_music_muffled = Mix_LoadWAV(WORKING_DIR "data/Giant Steps Muffled.wav");
-	state->explosion_sfx            = Mix_LoadWAV(WORKING_DIR "data/explosion.wav");
-	state->chomp_sfx                = Mix_LoadWAV(WORKING_DIR "data/chomp.wav");
+	state->background_music         = Mix_LoadWAV(DATA_DIR "Giant Steps.wav");
+	state->background_music_muffled = Mix_LoadWAV(DATA_DIR "Giant Steps Muffled.wav");
+	state->explosion_sfx            = Mix_LoadWAV(DATA_DIR "explosion.wav");
+	state->chomp_sfx                = Mix_LoadWAV(DATA_DIR "chomp.wav");
 
 	FILE* save_data;
 	errno_t save_data_error = fopen_s(&save_data, SAVE_DATA_FILE_PATH, "rb");
@@ -214,7 +218,7 @@ extern "C" PROTOTYPE_BOOT_UP(boot_up)
 
 extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
 {
-	State* state = reinterpret_cast<State*>(program->memory);
+	State* state = reinterpret_cast<State*>(platform->memory);
 
 	Mix_FreeChunk(state->chomp_sfx);
 	Mix_FreeChunk(state->explosion_sfx);
@@ -250,7 +254,7 @@ extern "C" PROTOTYPE_BOOT_DOWN(boot_down)
 
 extern "C" PROTOTYPE_UPDATE(update)
 {
-	State* state = reinterpret_cast<State*>(program->memory);
+	State* state = reinterpret_cast<State*>(platform->memory);
 
 	for (SDL_Event event; SDL_PollEvent(&event);)
 	{
@@ -260,7 +264,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 			{
 				if (event.window.event == SDL_WINDOWEVENT_CLOSE)
 				{
-					program->is_running = false;
+					platform->is_running = false;
 					return;
 				}
 			} break;
@@ -284,7 +288,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 		}
 	}
 
-	state->seconds_accumulated += program->delta_seconds;
+	state->seconds_accumulated += platform->delta_seconds;
 
 	if (state->seconds_accumulated >= SECONDS_PER_UPDATE)
 	{
@@ -424,7 +428,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 							case 3:
 							{
-								program->is_running = false;
+								platform->is_running = false;
 								return;
 							} break;
 						}
@@ -931,32 +935,32 @@ extern "C" PROTOTYPE_UPDATE(update)
 		// Render.
 		//
 
-		set_color(program->renderer, { 0.1f, 0.2f, 0.3f, 1.0f });
-		SDL_RenderClear(program->renderer);
+		set_color(platform->renderer, { 0.1f, 0.2f, 0.3f, 1.0f });
+		SDL_RenderClear(platform->renderer);
 
 		FOR_RANGE(belt_index, 3)
 		{
-			set_color(program->renderer, monochrome(BELT_LIGHTNESS[belt_index]));
-			draw_rect(program->renderer, { 0.0f, belt_index * BELT_HEIGHT * PIXELS_PER_METER }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER });
+			set_color(platform->renderer, monochrome(BELT_LIGHTNESS[belt_index]));
+			draw_rect(platform->renderer, { 0.0f, belt_index * BELT_HEIGHT * PIXELS_PER_METER }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER });
 
-			set_color(program->renderer, monochrome(0.4f));
+			set_color(platform->renderer, monochrome(0.4f));
 			FOR_RANGE(scale_index, static_cast<i32>(WINDOW_DIMENSIONS.x / (BELT_SPACING * PIXELS_PER_METER)) + 2)
 			{
 				vf2 mid = { fmodf(state->belt_offsets[belt_index], BELT_SPACING) + (scale_index - 1.0f) * BELT_SPACING, (belt_index + 0.5f) * BELT_HEIGHT };
-				draw_line(program->renderer, mid * PIXELS_PER_METER, (mid + vf2 { BELT_SPACING, -BELT_HEIGHT / 2.0f }) * PIXELS_PER_METER);
-				draw_line(program->renderer, mid * PIXELS_PER_METER, (mid + vf2 { BELT_SPACING,  BELT_HEIGHT / 2.0f }) * PIXELS_PER_METER);
+				draw_line(platform->renderer, mid * PIXELS_PER_METER, (mid + vf2 { BELT_SPACING, -BELT_HEIGHT / 2.0f }) * PIXELS_PER_METER);
+				draw_line(platform->renderer, mid * PIXELS_PER_METER, (mid + vf2 { BELT_SPACING,  BELT_HEIGHT / 2.0f }) * PIXELS_PER_METER);
 			}
 		}
 
-		set_color(program->renderer, { 1.0f, 1.0f, 1.0f, 1.0f });
-		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER        }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER        });
-		draw_line(program->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER * 2.0f }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER * 2.0f });
+		set_color(platform->renderer, { 1.0f, 1.0f, 1.0f, 1.0f });
+		draw_line(platform->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER        }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER        });
+		draw_line(platform->renderer, { 0.0f, BELT_HEIGHT * PIXELS_PER_METER * 2.0f }, { WINDOW_DIMENSIONS.x, BELT_HEIGHT * PIXELS_PER_METER * 2.0f });
 
 		if (state->type == StateType::title_menu || state->type == StateType::playing || state->type == StateType::settings || state->type == StateType::credits)
 		{
 			draw_text
 			(
-				program->renderer,
+				platform->renderer,
 				state->font,
 				{ WINDOW_DIMENSIONS.x / 2.0f + state->belt_offsets[2] * PIXELS_PER_METER, 2.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f },
 				FC_ALIGN_CENTER,
@@ -969,7 +973,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 			{
 				draw_text
 				(
-					program->renderer,
+					platform->renderer,
 					state->font,
 					{ WINDOW_DIMENSIONS.x / 2.0f + (it_index * TITLE_MENU_OPTION_SPACING + state->belt_offsets[1]) * PIXELS_PER_METER, 1.4f * BELT_HEIGHT * PIXELS_PER_METER },
 					FC_ALIGN_CENTER,
@@ -983,7 +987,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 			{
 				draw_text
 				(
-					program->renderer,
+					platform->renderer,
 					state->font,
 					{ WINDOW_DIMENSIONS.x / 2.0f + state->belt_offsets[2] * PIXELS_PER_METER, 2.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f },
 					FC_ALIGN_CENTER,
@@ -996,7 +1000,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 				{
 					draw_text
 					(
-						program->renderer,
+						platform->renderer,
 						state->font,
 						{ WINDOW_DIMENSIONS.x / 2.0f + (it_index * SETTINGS_OPTION_SPACING + state->belt_offsets[1] + SETTINGS_OPTIONS_OFFSET) * PIXELS_PER_METER, 1.4f * BELT_HEIGHT * PIXELS_PER_METER },
 						FC_ALIGN_CENTER,
@@ -1008,7 +1012,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 				draw_text
 				(
-					program->renderer,
+					platform->renderer,
 					state->font,
 					{ WINDOW_DIMENSIONS.x / 2.0f + (state->belt_offsets[0] + SETTINGS_VOLUME_SLIDE_OFFSET) * PIXELS_PER_METER, 0.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f },
 					FC_ALIGN_CENTER,
@@ -1019,7 +1023,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 
 				draw_text
 				(
-					program->renderer,
+					platform->renderer,
 					state->font,
 					{ WINDOW_DIMENSIONS.x / 2.0f + (state->belt_offsets[0] + SETTINGS_VOLUME_SLIDE_OFFSET + SETTINGS_VOLUME_SLIDE_WIDTH) * PIXELS_PER_METER, 0.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) / 2.0f },
 					FC_ALIGN_CENTER,
@@ -1034,7 +1038,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 				{
 					draw_text
 					(
-						program->renderer,
+						platform->renderer,
 						state->font,
 						{ WINDOW_DIMENSIONS.x / 2.0f + (state->belt_offsets[0] + CREDITS_OFFSET + it_index * CREDIT_SPACING) * PIXELS_PER_METER, 0.5f * BELT_HEIGHT * PIXELS_PER_METER - FC_GetBaseline(state->font) * 0.25f },
 						FC_ALIGN_CENTER,
@@ -1054,22 +1058,22 @@ extern "C" PROTOTYPE_UPDATE(update)
 				{
 					if (it->belt_index == i)
 					{
-						draw_sprite(program->renderer, &state->obstacle_sprites[it->sprite_index], project(it->position));
-						set_color(program->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
+						draw_sprite(platform->renderer, &state->obstacle_sprites[it->sprite_index], project(it->position));
+						set_color(platform->renderer, { 1.0f, 1.0f, 0.0f, 1.0f });
 					}
 				}
 			}
 
-			set_color(program->renderer, { 1.0f, 0.0f, 0.0f, 1.0f });
+			set_color(platform->renderer, { 1.0f, 0.0f, 0.0f, 1.0f });
 
 			if (state->type == StateType::playing)
 			{
 				SDL_SetTextureAlphaMod(state->shadow_sprite.texture, static_cast<u8>(255.0f * CLAMP(1.0f - state->playing.ralph_position.y / 4.0f, 0.0f, 1.0f)));
-				draw_sprite(program->renderer, &state->shadow_sprite, project({ state->playing.ralph_position.x, 0.0f, state->playing.ralph_position.z }));
-				draw_sprite(program->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
+				draw_sprite(platform->renderer, &state->shadow_sprite, project({ state->playing.ralph_position.x, 0.0f, state->playing.ralph_position.z }));
+				draw_sprite(platform->renderer, &state->ralph_running_sprite, project(state->playing.ralph_position));
 				draw_text
 				(
-					program->renderer,
+					platform->renderer,
 					state->font,
 					project({ state->playing.ralph_position.x, 0.0f, state->playing.ralph_position.z + BELT_HEIGHT * 0.45f }),
 					FC_ALIGN_CENTER,
@@ -1080,10 +1084,10 @@ extern "C" PROTOTYPE_UPDATE(update)
 			}
 			else
 			{
-				draw_sprite(program->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
+				draw_sprite(platform->renderer, &state->ralph_exploding_sprite, project(state->playing.ralph_position));
 				draw_text
 				(
-					program->renderer,
+					platform->renderer,
 					state->font,
 					{ WINDOW_DIMENSIONS.x / 2.0f + (state->belt_offsets[state->game_over.stat_belt_index] - state->game_over.initial_belt_offsets[state->game_over.stat_belt_index] + GAME_OVER_STATS_OFFSET) * PIXELS_PER_METER, (state->game_over.stat_belt_index + 0.5f) * BELT_HEIGHT * PIXELS_PER_METER + FC_GetBaseline(state->font) * 0.2f },
 					FC_ALIGN_CENTER,
@@ -1095,7 +1099,7 @@ extern "C" PROTOTYPE_UPDATE(update)
 		}
 
 
-		SDL_RenderPresent(program->renderer);
+		SDL_RenderPresent(platform->renderer);
 
 		state->prev_input = state->input;
 	}

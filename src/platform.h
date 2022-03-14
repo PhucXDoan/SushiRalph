@@ -1,43 +1,33 @@
 #pragma once
-#include <SDL.h>
-#include <SDL_ttf.h>
-#include <SDL_FontCache.h>
-#include <SDL_Mixer.h>
 #include "unified.h"
 
-global constexpr strlit  PROGRAM_DLL_FILE_PATH      = EXE_DIR "SushiRalph.dll";
-global constexpr strlit  PROGRAM_DLL_TEMP_FILE_PATH = EXE_DIR "SushiRalph.dll.temp";
-global constexpr strlit  LOCK_FILE_PATH             = EXE_DIR "LOCK.tmp";
-global constexpr memsize MEMORY_CAPACITY            = MEBIBYTES_OF(1);
-global constexpr vf2     WINDOW_DIMENSIONS          = vf2 ( 1280, 128 * 3 );
+global constexpr vf2 WINDOW_DIMENSIONS = vf2 ( 1280, 128 * 3 );
 
-struct Program
+struct Platform
 {
 	bool32        is_running;
 	f32           delta_seconds;
 	SDL_Renderer* renderer;
-	byte*         memory;
 	memsize       memory_capacity;
+	byte*         memory;
 };
 
-#define PROTOTYPE_INITIALIZE(NAME) void NAME(Program* program)
+#define PROTOTYPE_INITIALIZE(NAME) void NAME(Platform* platform)
 typedef PROTOTYPE_INITIALIZE(PrototypeInitialize);
 
-#define PROTOTYPE_BOOT_DOWN(NAME) void NAME(Program* program)
+#define PROTOTYPE_BOOT_DOWN(NAME) void NAME(Platform* platform)
 typedef PROTOTYPE_BOOT_DOWN(PrototypeBootDown);
 
-#define PROTOTYPE_BOOT_UP(NAME) void NAME(Program* program)
+#define PROTOTYPE_BOOT_UP(NAME) void NAME(Platform* platform)
 typedef PROTOTYPE_BOOT_UP(PrototypeBootUp);
 
-#define PROTOTYPE_UPDATE(NAME) void NAME(Program* program)
+#define PROTOTYPE_UPDATE(NAME) void NAME(Platform* platform)
 typedef PROTOTYPE_UPDATE(PrototypeUpdate);
 
-struct HotloadingData
-{
-	byte*                dll;
-	time_t               dll_modification_time;
-	PrototypeInitialize* initialize;
-	PrototypeBootDown*   boot_down;
-	PrototypeBootUp*     boot_up;
-	PrototypeUpdate*     update;
-};
+#if DEBUG
+#else
+extern "C" PROTOTYPE_INITIALIZE(initialize);
+extern "C" PROTOTYPE_BOOT_DOWN(boot_down);
+extern "C" PROTOTYPE_BOOT_UP(boot_up);
+extern "C" PROTOTYPE_UPDATE(update);
+#endif
