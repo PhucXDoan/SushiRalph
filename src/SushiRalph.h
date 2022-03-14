@@ -6,7 +6,7 @@ struct ObstacleAsset
 {
 	strlit file_path;
 	f32    scalar;
-	vf2    origin;
+	vf2    center;
 	vf3    hitbox;
 };
 
@@ -26,6 +26,7 @@ global constexpr f32 CALORIES_PER_METER  = 2.5f;
 global constexpr f32 CALORIES_PER_SWITCH = 1.0f;
 global constexpr f32 CALORIES_PER_JUMP   = 4.0f;
 
+global constexpr i32 BELT_COUNT                = 3;
 global constexpr f32 BELT_SPACING              = 0.5f;
 global constexpr f32 BELT_HEIGHT               = 0.75f;
 global constexpr f32 BELT_LIGHTNESS[]          = { 0.6f, 0.575f, 0.625f };
@@ -36,7 +37,7 @@ global constexpr vf3 RALPH_HITBOX_DIMENSIONS   = { 0.6f, 0.6f, 0.075f };
 global constexpr f32 RALPH_X                   = 4.0f;
 
 global constexpr f32    TITLE_MENU_OPTION_SPACING = 2.0f;
-global constexpr strlit TITLE_MENU_OPTIONS[]      = { "Options", "Settings", "Credits", "Exit" };
+global constexpr strlit TITLE_MENU_OPTIONS[]      = { "Play", "Settings", "Credits", "Exit" };
 global constexpr f32    TITLE_MENU_OPTIONS_WIDTH  = WINDOW_DIMENSIONS.x / PIXELS_PER_METER * 0.75f;
 
 global constexpr f32    SETTINGS_OPTIONS_OFFSET      = TITLE_MENU_OPTIONS_WIDTH + 5.0f;
@@ -102,7 +103,7 @@ struct Sprite
 	i32          width_pixels;
 	i32          height_pixels;
 	f32          scalar;
-	vf2          origin;
+	vf2          center;
 	i32          frame_index;
 	i32          frame_count;
 	f32          seconds_per_frame;
@@ -114,6 +115,14 @@ struct Obstacle
 	i32 sprite_index;
 	i32 belt_index;
 	vf3 position;
+};
+
+struct SaveData
+{
+	f32 highest_calories_burned;
+	f32 master_volume;
+	f32 music_volume;
+	f32 sfx_volume;
 };
 
 struct Input
@@ -145,11 +154,12 @@ struct State
 	f32       belt_offsets[3];
 	f32       belt_velocities[3];
 	f32       dampen_belt_velocities[3];
-	f32       highest_calories_burned;
+	f32       background_music_keytime;
+	f32       dampen_background_music_keytime;
 
 	struct
 	{
-		f32 resetting_keytime;
+		f32 resetting_keytime; // @TODO@ The resetting transition should be baked in the `game_over` state.
 		f32 initial_belt_offsets[3];
 
 		i32 option_index;
@@ -160,13 +170,8 @@ struct State
 		bool32 showing;
 		f32    show_keytime;
 		f32    initial_belt_offsets[3];
-
 		bool32 changing_option;
 		i32    option_index;
-
-		f32    master_volume;
-		f32    music_volume;
-		f32    sfx_volume;
 	} settings;
 
 	struct
@@ -174,14 +179,12 @@ struct State
 		bool32 showing;
 		f32    keytime;
 		f32    initial_belt_offsets[3];
-
 		i32    credit_index;
 	} credits;
 
 	struct
 	{
 		f32      belt_velocity_update_keytime;
-
 		i32      ralph_belt_index;
 		vf3      ralph_position;
 		vf3      ralph_velocity;
@@ -197,19 +200,15 @@ struct State
 		bool32 exiting;
 		f32    keytime;
 		f32    initial_belt_offsets[3];
-
-		i32 stat_belt_index;
+		i32    stat_belt_index;
 	} game_over;
 
+	SaveData   save_data;
 	FC_Font*   font;
 	Sprite     ralph_running_sprite;
 	Sprite     ralph_exploding_sprite;
 	Sprite     shadow_sprite;
 	Sprite     obstacle_sprites[ARRAY_CAPACITY(OBSTACLE_ASSETS)];
-
-	f32        background_music_keytime;
-	f32        dampen_background_music_keytime;
-	f32        background_music_keytime_dampening;
 	Mix_Chunk* background_music;
 	Mix_Chunk* background_music_muffled;
 	Mix_Chunk* explosion_sfx;

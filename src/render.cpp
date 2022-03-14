@@ -53,8 +53,8 @@ internal void draw_sprite(SDL_Renderer* renderer, Sprite* sprite, vf2 bottom_lef
 		SDL_Rect src = { sprite->frame_index * sprite->width_pixels, 0, sprite->width_pixels, sprite->height_pixels };
 		SDL_Rect dst =
 			{
-				static_cast<i32>(bottom_left.x + sprite->width_pixels * sprite->scalar * (sprite->origin.x - 1.0f)),
-				static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f + sprite->height_pixels * sprite->scalar * (sprite->origin.y - 1.0f) - bottom_left.y),
+				static_cast<i32>(bottom_left.x + sprite->width_pixels * sprite->scalar * (sprite->center.x - 1.0f)),
+				static_cast<i32>(WINDOW_DIMENSIONS.y - 1.0f + sprite->height_pixels * sprite->scalar * (sprite->center.y - 1.0f) - bottom_left.y),
 				static_cast<i32>(sprite->width_pixels  * sprite->scalar),
 				static_cast<i32>(sprite->height_pixels * sprite->scalar)
 			};
